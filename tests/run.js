@@ -783,8 +783,14 @@ async function main(){
     record('Q1. After adding a document, the calendar is offered', /Add reminders to your calendar/.test(a.text('#sheet')) && /1 reminder at 09:00/.test(a.text('#sheet')));
     const ev1 = JSON.parse(a.ev(`JSON.stringify(calendarEvents(docById(${JSON.stringify(pid)})))`));
     record('Q2. All reminder dates passed → one reminder tomorrow', ev1.length === 1 && ev1[0].date === '2026-11-07' && ev1[0].title === 'Your passport expires 14 Apr 2027' && /6 months’ validity/.test(ev1[0].desc));
-    await a.click('[data-act="calDownload"]'); await sleep(20);
+    const fname = a.w.__blobs.length; await a.click('[data-act="calDownload"]'); await sleep(20);
     const ics1 = await lastIcs();
+    record('Q5a. File name says what it is and when (each one different)', /^expiry-passport-\d{8}-\d{4}\.ics$/.test(a.ev('topEntry().fileName')), a.ev('topEntry().fileName'));
+    record('Q5b. After saving the file, Expiry asks whether the reminders reached the calendar, with how to check', /Did the reminders reach your calendar/.test(a.text('#sheet')) && /14 Nov 2026|7 Nov 2026/.test(a.text('#sheet')) && /Your passport expires 14 Apr 2027/.test(a.text('#sheet')));
+    record('Q5c. Not counted as in the calendar until you confirm', a.ev(`calStatus(docById(${JSON.stringify(pid)}))`) === 'sent');
+    await a.click('[data-act="calHelp"]');
+    record('Q5d. “It didn’t work” explains the Google Calendar route', /calendar\.google\.com/.test(a.text('#sheet')));
+    await a.click('[data-act="calConfirmed"]'); await sleep(10);
     const lines = ics1.split('\r\n');
     record('Q3. Calendar file: valid structure with CRLF, one event with an alert at 09:00', /^BEGIN:VCALENDAR\r\n/.test(ics1) && /END:VCALENDAR\r\n$/.test(ics1) && lines.filter(l => l === 'BEGIN:VEVENT').length === 1 && lines.includes('DTSTART:20261107T090000') && lines.includes('BEGIN:VALARM') && lines.includes('TRIGGER:PT0M') && lines.includes('SEQUENCE:1'));
     record('Q4. No reference numbers go into the calendar; the event links back to the document', !/A1234567/.test(ics1) && ics1.replace(/\r\n /g, '').includes('URL:https://localhost/expiry/#doc=' + pid));
@@ -798,7 +804,7 @@ async function main(){
     const iid = a.ev(`state.documents.find(d=>d.typeId==='insurance').id`);
     const ev2 = JSON.parse(a.ev(`JSON.stringify(calendarEvents(docById(${JSON.stringify(iid)})))`));
     record('Q7. Other owner: “Amina’s insurance…”, one event per future reminder', ev2.length === 2 && ev2[0].date === '2026-11-24' && ev2[1].date === '2026-12-17' && ev2[0].title === 'Amina’s insurance expires 24 Dec 2026');
-    await a.click('[data-act="calDownload"]'); await sleep(20);
+    await a.click('[data-act="calDownload"]'); await sleep(20); await a.click('[data-act="calConfirmed"]');
     const ics2 = await lastIcs();
     const uid30 = `UID:exp-${iid}-30days@expiry.app`;
     record('Q8. Stable event IDs per document and lead time', ics2.replace(/\r\n /g, '').includes(uid30));
@@ -807,7 +813,7 @@ async function main(){
     await a.type('[data-bind="ramount"][data-idx="0"]', '14');
     await a.click('[data-act="saveDoc"]'); await a.waitFor(() => !a.ev('_saving')); await sleep(20);
     record('Q9. Changing reminders offers to update the calendar', /Update your calendar/.test(a.text('#sheet')) && /1 old one removed/.test(a.text('#sheet')));
-    await a.click('[data-act="calDownload"]'); await sleep(20);
+    await a.click('[data-act="calDownload"]'); await sleep(20); await a.click('[data-act="calConfirmed"]');
     const ics3 = (await lastIcs()).replace(/\r\n /g, '');
     const blocks = ics3.split('BEGIN:VEVENT').slice(1);
     const cancelled = blocks.filter(b => /STATUS:CANCELLED/.test(b));
@@ -823,7 +829,7 @@ async function main(){
     record('Q12. Deleting keeps a note to cancel its calendar events', a.ev('state.calTombstones.length') === 1);
     record('Q13. Home shows the calendar nudge', /up to date in your calendar/.test(a.text('.summary')), a.text('.summary'));
     await a.click('[data-act="calAll"]');
-    await a.click('[data-act="calDownload"]'); await sleep(20);
+    await a.click('[data-act="calDownload"]'); await sleep(20); await a.click('[data-act="calConfirmed"]');
     const ics4 = (await lastIcs()).replace(/\r\n /g, '');
     record('Q14. Update-all file cancels the deleted document’s events; nothing left pending', ics4.includes(`UID:exp-${pid}-soon@expiry.app`) && /STATUS:CANCELLED/.test(ics4) && a.ev('state.calTombstones.length') === 0 && a.ev('calNeedsUpdate().length') === 0);
     // restore the archived insurance so there's something to export
@@ -834,11 +840,20 @@ async function main(){
     await a.click('[data-act="calEverything"]');
     record('Q15. Share is offered when the phone supports sharing files', !!a.$('#sheet [data-act="calShare"]'));
     await a.click('[data-act="calShare"]'); await sleep(20);
-    record('Q16. Share hands over the .ics file', shared && shared.files && shared.files[0].name === 'expiry-reminders.ics');
+    record('Q16. Share hands over the .ics file', shared && shared.files && /^expiry-all-reminders-\d{8}-\d{4}\.ics$/.test(shared.files[0].name));
+    record('Q16a. Shared but not confirmed: Home asks you to check', /not confirmed in your calendar/.test(a.text('.summary')) && /not confirmed/.test(a.text('#sheet')) === false);
+    await a.click('#sheet [data-act="back"]');
+    await a.click('[data-act="calCheck"]');
+    record('Q16b. “Check” lists what to look for and lets you confirm', /Did the reminders reach your calendar/.test(a.text('#sheet')) && !!a.$('#sheet [data-act="calConfirmed"]'));
+    await a.click('[data-act="calConfirmed"]');
+    record('Q16c. Confirmed: nudge gone', !/not confirmed/.test(a.text('.summary')) && a.ev('calUnconfirmed().length') === 0);
     // reminder time
     const t = a.$('#remtime'); t.value = '07:30'; t.dispatchEvent(new a.w.Event('change', { bubbles: true })); await sleep(10);
     record('Q17. Changing the reminder time marks the calendar out of date', a.ev('state.settings.reminderTime') === '07:30' && a.ev('calNeedsUpdate().length') >= 1);
-    await a.click('[data-act="calEverything"]'); await a.click('[data-act="calDownload"]'); await sleep(20);
+    await a.click('[data-act="calEverything"]'); await a.click('[data-act="calDownload"]'); await sleep(20); await a.click('[data-act="calConfirmed"]');
+    a.ev(`delete docById(${JSON.stringify(iid)}).cal.confirmed; save(); renderSide(topPane()||{})`);
+    record('Q17a. Files sent by the earlier version count as not confirmed', a.ev(`calStatus(docById(${JSON.stringify(iid)}))`) === 'sent');
+    a.ev(`docById(${JSON.stringify(iid)}).cal.confirmed = true; save()`);
     record('Q18. New time used in the file', (await lastIcs()).includes('T073000'));
     a.ev(`docById(${JSON.stringify(iid)}).values.expiry = '2026-11-20'; save();`); // inside its reminder window
     const snap = await a.snapshot();
@@ -877,7 +892,7 @@ async function main(){
     await a.type('#f-ref', 'POL-1000'); await a.type('#f-issuer', 'Jubilee'); await a.type('#f-expiry', '2026-11-24');
     a.keepCal = true;
     await a.click('[data-act="saveDoc"]'); await a.waitFor(() => !a.ev('_saving')); await sleep(20);
-    await a.click('[data-act="calDownload"]'); await sleep(20);
+    await a.click('[data-act="calDownload"]'); await sleep(20); await a.click('[data-act="calConfirmed"]');
     a.keepCal = false;
     const id = a.ev('state.documents[0].id');
     const oldAttId = a.ev('state.documents[0].attachments[0].id');
@@ -897,7 +912,7 @@ async function main(){
     const d1 = JSON.parse(a.ev(`JSON.stringify(docById(${JSON.stringify(id)}))`));
     record('N6. Saved: new values current, old version (with its image) first in History', d1.values.ref === 'POL-2000' && d1.values.expiry === '2027-11-24' && d1.history.length === 1 && d1.history[0].values.ref === 'POL-1000' && d1.history[0].attachments[0].id === oldAttId && d1.attachments.length === 0 && d1.state === 'active');
     record('N7. Calendar update offered (same events, new dates)', /Update your calendar/.test(a.text('#sheet')));
-    await a.click('[data-act="calDownload"]'); await sleep(10);
+    await a.click('[data-act="calDownload"]'); await sleep(10); await a.click('[data-act="calConfirmed"]');
     a.keepCal = false;
     record('N8. History list on the document', /Expired 24 Nov 2026/.test(a.text('#side-pane')) && /POL-1000 · 1 file/.test(a.text('#side-pane')));
     await a.click('[data-act="openHistory"]');

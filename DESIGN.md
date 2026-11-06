@@ -12,7 +12,7 @@ details from a scan, and reminds you through your calendar before anything runs 
 Status: design agreed 2026-11-06. **M1–M9 built** (records, profiles, Fold layouts, app lock,
 fingerprint, sensitive vault, auto-lock, encrypted photos and PDFs, scanning and reading details,
 calendar reminders and Home summary, renew flow and History, encrypted GitHub sync, backups,
-type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view; 314 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
+type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you; 322 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
 
 M2 notes (decisions made while building):
 - The app lock is **required** in Expiry (optional in Mandoos): setup asks for a password (8+ characters)
@@ -48,6 +48,11 @@ M5 notes:
 - Expired and archived documents get no events; the Home "Needs attention" summary covers them.
 - Delivery: "Open in calendar app" downloads the file; "Share file…" appears where the phone can share files.
   Whether Samsung Calendar honours cancellations and updates on import still needs checking on the Fold.
+- Later fix: each file is named after what's in it and when (`expiry-passport-20261106-1830.ics`,
+  `expiry-all-reminders-….ics`). Saving or sharing the file no longer counts as "in your calendar": Expiry
+  asks "Did the reminders reach your calendar?" with how to open the file and which event to look for, plus
+  the Google Calendar import route if the phone won't open it. Until you confirm, the document says "not
+  confirmed" and Home offers "Check". Files sent before this change count as not confirmed.
 - After saving a new or changed document Expiry offers the calendar; each document shows its calendar status;
   Home shows a nudge when documents aren't up to date; Settings has "Add all reminders to calendar".
 
@@ -365,3 +370,55 @@ Each milestone ends with tests passing and a check on the Fold.
 - GitHub repo name for the app (it decides the install URL).
 - Best calendar import route on the Fold (Samsung Calendar vs Google Calendar).
 - Accuracy of on-device text recognition on your actual documents — tune in M4.
+
+---
+
+## 7. M10: Phone notifications (designed, on hold: calendar route preferred for now)
+
+**Goal:** Expiry tells you about a reminder date even if you never imported the calendar file.
+The calendar export stays as a second route.
+
+### What you get
+| Notification | When | Text (default, nothing sensitive) |
+|---|---|---|
+| Reminder | On each reminder date (e.g. 6 months before a passport expires) | "Expiry · 1 document needs attention" · "Expires in 6 months. Tap to see it." |
+| Expiry day | On the expiry date itself | "Expiry · A document expires today" |
+| Renewal follow-up | On the renewal's expected-by date | "Expiry · A renewal was expected today" |
+| Several at once | Combined into one notification | "Expiry · 3 documents need attention" |
+
+- Tapping opens Expiry; after unlock it goes straight to the document (one item) or to Home
+  filtered to "Expiring soon" (several).
+- Buttons on the notification: **Open** · **Tomorrow** (snooze one day).
+- Each reminder notifies once per phone (reminders already have stable ids); renewing a document
+  creates new reminders automatically.
+- Notifications use the reminder time from Settings (default 09:00), as near as Android allows.
+- Optional setting **"Show type and person"**: "Passport · Salim expires in 6 months". Off by default
+  because notifications show on the lock screen. Reference numbers are never shown.
+
+### How it works on the Fold
+- **Permission:** requested only when you tap "Turn on notifications" (Android requires a tap).
+- **Daily background check:** Chrome's periodic background sync for installed apps, asked for once a day.
+  Chrome decides the actual timing from how often you use the app. It can be later than 09:00, and
+  may pause if the phone is in battery saver or the app is unused for weeks.
+- **Check on open:** every time Expiry opens (even on the lock screen) it catches up on anything missed.
+- **No server:** nothing leaves the phone; there is no push service.
+- **Known limit:** a web app cannot schedule an exact alarm; if background checks turn out unreliable on
+  the Fold, a later option is a small daily GitHub Action that sends a push (needs a server-side key).
+
+### Data kept for the background check
+The service worker can't read the encrypted data, so on each save while unlocked Expiry writes a small
+**notification schedule** to IndexedDB (`expiry_notify`): reminder id, date, kind (reminder / expiry /
+follow-up), lead text ("6 months"), and, only if "Show type and person" is on, the type name and owner's
+first name. No numbers, titles or images. It is cleared when notifications are turned off or the phone's
+keys are erased ("Forgot password").
+
+### Screens
+- **Home, one-time card** (until turned on or dismissed): "Get reminders as phone notifications?
+  [Turn on] [Not now]".
+- **Settings → Reminders** (renamed from "Reminders and calendar"):
+  - Notifications: On / Off, with status — "On · last checked today 09:12", "Blocked in Android settings
+    (how to fix)", or "Background checks not available: you'll be notified when you open Expiry".
+  - Show type and person in notifications: Off / On.
+  - Send a test notification.
+  - Reminder time (existing), "Needs attention" on Home (existing), Add all reminders to calendar (existing).
+- Folded and unfolded use the same settings card; the Home card sits above the counters.

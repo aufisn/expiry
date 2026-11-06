@@ -156,6 +156,9 @@
   .cal-line span{flex:1;}
   .cal-line.ok{color:var(--green);}
   .cal-line.warn{color:var(--amber);}
+  .cal-line .mini-btn + .mini-btn{margin-left:4px;}
+  ol.steps{margin:4px 0 14px; padding-left:22px; font-size:14px; line-height:1.5; color:var(--text-2);}
+  ol.steps li{margin:4px 0;} ol.steps b{color:var(--text);}
   .summary{background:var(--surface); border:1px solid var(--border-strong); border-radius:var(--radius); padding:8px 12px 10px; margin:4px 0 10px;}
   .summary-head{display:flex; align-items:center; justify-content:space-between; font-weight:600; font-size:14px;}
   .summary-head .icon-btn{width:32px; height:32px;}
@@ -1758,9 +1761,16 @@ const ACT = {
   conflictApply: ()=>{ const e = topEntry(); if(!e || !e.conflicts) return; const pick = e.pick; e.finish(pick); pop(); },
   calDoc: el=>{ const d = docById(el.dataset.id); if(d) openCalendarSheet([d], { title: d.cal ? 'Update your calendar' : 'Add reminders to your calendar' }); },
   calAll: ()=>openCalendarSheet(calNeedsUpdate(), { all:true, title:'Update your calendar' }),
+  calCheck: ()=>{ const docs = calUnconfirmed(); if(!docs.length) return;
+    const res = { text: buildIcs(docs).text, marks: docs.map(d=>({ d })) };
+    const evs = docs.flatMap(d=>calendarEvents(d)).sort((a,b)=>a.date<b.date?-1:1);
+    openSheet(calConfirmEntry({ res, fileName: calFileName(docs, false), first: evs[0] || null }, 'earlier')); },
   calEverything: ()=>openCalendarSheet(state.documents.filter(d=>calendarEvents(d).length || d.cal), { all:true, title:'Add all reminders to your calendar' }),
   calDownload: ()=>calDeliver('download'),
   calShare: ()=>calDeliver('share'),
+  calConfirmed: ()=>calConfirm(),
+  calHelp: ()=>{ const e = topEntry(); if(e && e.calConfirm){ e.help = !e.help; renderSheet(true); } },
+  calMarkThere: el=>{ const d = docById(el.dataset.id); if(d && d.cal){ d.cal.confirmed = true; save(); const p = topPane(); if(p) renderSide(p); renderHome(); toast('Marked as in your calendar'); } },
   dismissSummary: ()=>{ state.settings.summaryDismissed = toISO(todayDate()); save(); renderHome(); },
   summaryToggle: el=>{ state.settings.summaryOnOpen = el.dataset.v==='on'; if(state.settings.summaryOnOpen) delete state.settings.summaryDismissed; save(); renderSide(topPane()); renderHome(); },
   swapDate: el=>{ const k = el.dataset.key; const alt = draft && draft.scan && draft.scan.alts[k]; if(!alt) return; draft.scan.alts[k] = draft.values[k]; draft.values[k] = alt; draft.dirty = true; rerenderEditor(); },
@@ -3443,12 +3453,16 @@ function calendarEvents(d, today){
   return out.sort((a,b)=>a.date<b.date?-1:1);
 }
 function calSig(d){ return JSON.stringify([calendarEvents(d).map(e=>[e.uid, e.date, e.title]), state.settings.reminderTime]); }
-// 'none' (nothing to add) · 'missing' (never added) · 'stale' (changed since) · 'ok'
+// 'none' (nothing to add) · 'missing' (never added) · 'stale' (changed since)
+// · 'sent' (file handed over, not confirmed in the calendar yet) · 'ok' (you confirmed it's there)
 function calStatus(d){
   const evs = calendarEvents(d);
   if(!d.cal) return evs.length ? 'missing' : 'none';
-  return d.cal.sig===calSig(d) ? 'ok' : 'stale';
+  if(d.cal.sig!==calSig(d)) return 'stale';
+  if(!evs.length) return 'ok';
+  return d.cal.confirmed ? 'ok' : 'sent';
 }
+function calUnconfirmed(){ return state.documents.filter(d=>calStatus(d)==='sent'); }
 function calNeedsUpdate(){ return state.documents.filter(d=>{ const s = calStatus(d); return s==='missing' || s==='stale'; }); }
 
 /* ----- .ics text ----- */
@@ -3507,7 +3521,7 @@ function buildIcs(docs, opts){
 }
 function markExported(res){
   const at = new Date().toISOString();
-  for(const m of res.marks) m.d.cal = { seq:m.seq, uids:m.uids, sig:calSig(m.d), at };
+  for(const m of res.marks) m.d.cal = { seq:m.seq, uids:m.uids, sig:calSig(m.d), at, confirmed:false };
   if(res.tombs.length) state.calTombstones = (state.calTombstones||[]).filter(t=>!res.tombs.includes(t));
   save();
 }
@@ -3518,7 +3532,17 @@ function tombstoneCalendar(d){
 }
 
 /* ----- handing the file to the phone ----- */
-function calFile(text){ return new File([text], 'expiry-reminders.ics', { type:'text/calendar' }); }
+function calFileName(docs, all){
+  const n = new Date(), stamp = n.getFullYear()+pad(n.getMonth()+1)+pad(n.getDate())+'-'+pad(n.getHours())+pad(n.getMinutes());
+  let what = 'all-reminders';
+  if(!all && docs.length===1){
+    const d = docs[0], p = profileById(d.ownerId);
+    const slug = x=>String(x||'').normalize('NFKD').replace(/[^\w\s-]/g,'').trim().toLowerCase().replace(/[\s_]+/g,'-').replace(/-+/g,'-').slice(0, 30);
+    what = [p && !p.isSelf ? slug(p.name.split(/\s+/)[0]) : '', slug(docTitle(d)) || slug(d.typeId)].filter(Boolean).join('-') || 'reminders';
+  } else if(!all) what = docs.length+'-documents';
+  return 'expiry-'+what+'-'+stamp+'.ics';
+}
+function calFile(text, name){ return new File([text], name || 'expiry-reminders.ics', { type:'text/calendar' }); }
 function canShareFile(f){ try{ return !!(navigator.canShare && navigator.share && navigator.canShare({ files:[f] })); }catch(e){ return false; } }
 function downloadFile(file){
   const url = URL.createObjectURL(file);
@@ -3531,32 +3555,62 @@ function openCalendarSheet(docs, opts){
   opts = opts || {};
   const res = buildIcs(docs, { includeTombstones: !!opts.all });
   if(!res.count && !res.cancelled){ toast(opts.all ? 'Your calendar is up to date.' : 'There are no upcoming reminders to add.'); return; }
-  const file = calFile(res.text);
+  const fileName = calFileName(docs, !!opts.all);
+  const file = calFile(res.text, fileName);
   const share = canShareFile(file);
   const evs = docs.flatMap(d=>calendarEvents(d).map(e=>e));
   const list = evs.slice(0, 6).map(e=>`<div class="kv"><span class="k">${esc(fmtDate(e.date))}</span><span class="v" style="font-weight:400">${esc(e.title)}</span></div>`).join('');
-  const entry = { calendar:true, res,
+  const entry = { calendar:true, res, fileName, first: evs[0] || null,
     render:()=>`<h3>${opts.title || 'Add reminders to your calendar'}</h3>
       <p class="sub">${res.count} reminder${res.count===1?'':'s'} at ${esc(state.settings.reminderTime||'09:00')}${res.cancelled?`, and ${res.cancelled} old one${res.cancelled===1?'':'s'} removed`:''}. Your calendar will alert you even if you don’t open Expiry.</p>
       ${list?`<div class="card">${list}${evs.length>6?`<div class="kv"><span class="muted">and ${evs.length-6} more</span></div>`:''}</div>`:''}
-      <div class="info"><i class="ti ti-info-circle" aria-hidden="true"></i><span>Open the file and choose Samsung Calendar to save the events. Adding the file again later updates them instead of duplicating.</span></div>
+      <div class="info"><i class="ti ti-info-circle" aria-hidden="true"></i><span>Expiry saves a file named <b>${esc(fileName)}</b>. Your calendar only has the reminders once you open that file and save the events. Adding it again later updates them instead of duplicating.</span></div>
       <button class="btn primary" style="width:100%;margin-bottom:8px" data-act="calDownload"><i class="ti ti-calendar-plus" aria-hidden="true"></i>Open in calendar app</button>
       ${share?`<button class="btn" style="width:100%;margin-bottom:8px" data-act="calShare"><i class="ti ti-share" aria-hidden="true"></i>Share file…</button>`:''}
       <button class="btn" style="width:100%" data-act="back">Later</button>` };
   openSheet(entry);
 }
 async function calDeliver(how){
-  const e = topEntry(); if(!e || !e.calendar) return;
-  const file = calFile(e.res.text);
+  const e = topEntry(); if(!e || !(e.calendar || e.calConfirm)) return;
+  const file = calFile(e.res.text, e.fileName);
   if(how==='share'){
     try{ expectExternalUi(); await navigator.share({ files:[file], title:'Expiry reminders' }); }
     catch(x){ if(x && x.name==='AbortError') return; toast('Couldn’t share. Try Open in calendar app.'); return; }
   } else { expectExternalUi(); downloadFile(file); }
-  markExported(e.res);
-  if(topEntry()===e) pop();
+  if(e.calendar) markExported(e.res);
   const p = topPane(); if(p) renderSide(p);
   renderHome();
-  toast(how==='share' ? 'Shared. Choose your calendar app to save the events.' : 'Downloaded. Open it and choose Samsung Calendar.');
+  // second step: the file only reaches the calendar if you open it there, so ask
+  if(topEntry()===e) replaceTop(calConfirmEntry(e, how));
+}
+function calConfirmEntry(e, how){
+  const docIds = e.res.marks.map(m=>m.d.id), first = e.first;
+  const share = canShareFile(calFile(e.res.text, e.fileName));
+  return { kind:'sheet', calConfirm:true, res:e.res, fileName:e.fileName, first, docIds, how, help:false,
+    render:function(){ const me = this; return `<h3>Did the reminders reach your calendar?</h3>
+      <p class="sub">${how==='earlier' ? 'Expiry gave you a calendar file for these reminders earlier, but you haven’t confirmed they arrived. Look in your calendar, or save the file again.'
+        : `${how==='share' ? 'You shared' : 'Expiry saved'} <b>${esc(me.fileName)}</b>${how==='share' ? '' : ' to Downloads'}. Nothing is in your calendar until you open it and save the events.`}</p>
+      <ol class="steps">
+        ${how==='earlier' ? '' : how==='share' ? '<li>In the list that opened, choose <b>Calendar</b> (Samsung) or <b>Google Calendar</b>.</li>'
+          : '<li>Pull down the notification shade and tap the file. Or open <b>My Files → Downloads</b> and tap it.</li><li>Choose <b>Calendar</b> (Samsung) or <b>Google Calendar</b>, then <b>Save</b> or <b>Import</b>.</li>'}
+        ${first ? `<li>Check: open your calendar on <b>${esc(fmtDateLong(first.date))}</b>, and look for “${esc(first.title)}” at ${esc(state.settings.reminderTime||'09:00')}.</li>` : ''}
+      </ol>
+      <button class="btn primary" style="width:100%;margin-bottom:8px" data-act="calConfirmed"><i class="ti ti-calendar-check" aria-hidden="true"></i>Yes, they’re in my calendar</button>
+      <button class="btn" style="width:100%;margin-bottom:8px" data-act="calDownload"><i class="ti ti-download" aria-hidden="true"></i>Save the file again</button>
+      ${share ? `<button class="btn" style="width:100%;margin-bottom:8px" data-act="calShare"><i class="ti ti-share" aria-hidden="true"></i>Share file…</button>` : ''}
+      <button class="btn" style="width:100%;margin-bottom:8px" data-act="calHelp" aria-expanded="${me.help}"><i class="ti ti-help-circle" aria-hidden="true"></i>It didn’t work</button>
+      ${me.help ? `<div class="info"><i class="ti ti-bulb" aria-hidden="true"></i><span>If the phone won’t open the file, use Google Calendar on the Mac: share the file to yourself (email or Drive),
+        then open <b>calendar.google.com → Settings → Import and export → Import</b> and choose it. Google Calendar syncs to the Fold, and Samsung Calendar shows it
+        when your Google account is added there. Then come back and tap “Yes”.</span></div>` : ''}
+      <button class="btn" style="width:100%" data-act="back">Not yet</button>`; } };
+}
+function calConfirm(){
+  const e = topEntry(); if(!e || !e.calConfirm) return;
+  for(const id of e.docIds){ const d = docById(id); if(d && d.cal) d.cal.confirmed = true; }
+  save(); pop();
+  const p = topPane(); if(p) renderSide(p);
+  renderHome();
+  toast('Great. Your calendar will remind you.');
 }
 // After saving: offer the calendar when there's something new for it.
 function maybeOfferCalendar(d){
@@ -3567,6 +3621,7 @@ function calStatusHTML(d){
   const s = calStatus(d);
   if(s==='none') return '';
   if(s==='ok') return `<div class="cal-line ok"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>In your calendar</span><button class="mini-btn" data-act="calDoc" data-id="${esc(d.id)}">Add again</button></div>`;
+  if(s==='sent') return `<div class="cal-line warn"><i class="ti ti-calendar-question" aria-hidden="true"></i><span>Calendar file sent, not confirmed in your calendar</span><button class="mini-btn" data-act="calMarkThere" data-id="${esc(d.id)}">It’s there</button><button class="mini-btn" data-act="calDoc" data-id="${esc(d.id)}">Send again</button></div>`;
   if(s==='stale') return `<div class="cal-line warn"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Changed since you added it to your calendar</span><button class="mini-btn" data-act="calDoc" data-id="${esc(d.id)}">Update calendar</button></div>`;
   return `<div class="cal-line"><i class="ti ti-calendar" aria-hidden="true"></i><span>Not in your calendar yet</span><button class="mini-btn" data-act="calDoc" data-id="${esc(d.id)}">Add to calendar</button></div>`;
 }
@@ -3575,14 +3630,14 @@ function calStatusHTML(d){
 function summaryHTML(){
   if(state.settings.summaryOnOpen===false) return '';
   const today = todayDate(), todayIso = toISO(today);
-  const calN = calNeedsUpdate().length;
+  const calN = calNeedsUpdate().length, calU = calUnconfirmed().length;
   const items = state.documents.filter(d=>(ui.profile==='all' || d.ownerId===ui.profile))
     .map(d=>({ d, st:docStatus(d, today) }))
     .filter(x=>x.st==='expired' || x.st==='soon' || (x.st==='renewing' && x.d.renewal && x.d.renewal.expectedBy && daysBetween(today, parseISO(x.d.renewal.expectedBy)) < 0))
     .sort((a,b)=>(a.d.values.expiry||'') < (b.d.values.expiry||'') ? -1 : 1);
   const syncN = syncNudgeHTML() + backupNudgeHTML();
   if(state.settings.summaryDismissed===todayIso && !syncN) return '';
-  if(!items.length && !calN && !syncN) return '';
+  if(!items.length && !calN && !calU && !syncN) return '';
   const line = ({d, st})=>{
     const p = profileById(d.ownerId); const days = daysBetween(today, parseISO(d.values.expiry));
     if(st==='renewing') return `<button class="sum-item" data-act="openDoc" data-id="${esc(d.id)}"><span class="dot st-renewing" style="background:currentColor"></span><span><b>${esc(docTitle(d))}</b>${ui.profile==='all'&&p?' · '+esc(p.name):''} renewal expected ${esc(fmtDate(d.renewal.expectedBy))}, not marked as received</span></button>`;
@@ -3598,6 +3653,7 @@ function summaryHTML(){
     ${items.slice(0,3).map(line).join('')}${items.length>3?`<div class="muted" style="padding:2px 0 4px">and ${items.length-3} more below</div>`:''}
     ${syncN}
     ${calN ? `<button class="sum-item cal" data-act="calAll"><i class="ti ti-calendar-plus" aria-hidden="true"></i><span>${calN} document${calN===1?' isn’t':'s aren’t'} up to date in your calendar. <u>Update calendar</u></span></button>` : ''}
+    ${calU ? `<button class="sum-item cal" data-act="calCheck"><i class="ti ti-calendar-question" aria-hidden="true"></i><span>${calU} document${calU===1?'’s':'s’'} reminders not confirmed in your calendar. <u>Check</u></span></button>` : ''}
   </div>`;
 }
 
