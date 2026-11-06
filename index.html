@@ -527,11 +527,16 @@ function initials(name){
   const parts = String(name||'?').trim().split(/\s+/);
   return ((parts[0]||'?')[0] + (parts.length>1 ? parts[parts.length-1][0] : (parts[0][1]||''))).toUpperCase();
 }
+const TITLE_MAX = 25;
+function ownTitle(doc){ const v = doc && doc.values && doc.values.title; return v ? String(v).trim().slice(0, TITLE_MAX) : ''; }
 function docTitle(doc){
+  const own = ownTitle(doc); if(own) return own;
   const t = typeById(doc.typeId);
   const v = t.titleKey && doc.values[t.titleKey];
   return (v && String(v).trim()) || t.name;
 }
+// for use inside a sentence: a title you typed keeps its capitals, a type name is lowercased
+function docTitleInline(doc){ return ownTitle(doc) || docTitle(doc).toLowerCase(); }
 function maskValue(v){ const s = String(v||'').replace(/\s+/g,''); return s.length>4 ? '•••• '+s.slice(-4) : '••••'; }
 function last4(v){ const s = String(v||'').replace(/\s+/g,''); return s.length>4 ? s.slice(-4) : ''; }
 function maskedFor(doc, key){ const m = doc.masks && doc.masks[key]; return m ? '•••• '+m : '••••'; }
@@ -910,6 +915,12 @@ function fieldInput(f){
   const flags = (f.required?' <span class="tag">required</span>':'') + (f.sensitive?' <span class="tag">sensitive</span>':'') + srcBadge(f.key);
   return `<div class="field${err?' invalid':''}"><label for="f-${esc(f.key)}">${esc(f.label)}${flags}</label>${input}${altNote(f.key)}${beforeHTML(f)}${err?`<div class="err" id="err-${esc(f.key)}">${esc(err)}</div>`:''}</div>`;
 }
+function titleInputHTML(t){
+  const v = draft.values.title || '';
+  return `<div class="field"><label for="f-title">Document title <span class="tag">optional</span></label>
+    <input type="text" id="f-title" data-bind="value" data-key="title" data-kind="text" maxlength="${TITLE_MAX}" value="${esc(v)}" placeholder="${esc(t.name)}" autocomplete="off">
+    <div class="muted">Up to ${TITLE_MAX} characters. Leave it empty to use the type name.</div></div>`;
+}
 function reminderPreviewHTML(){
   const exp = parseISO(draft.values.expiry);
   if(!exp) return `<div class="muted">Set the expiry date to see reminder dates.</div>`;
@@ -936,12 +947,13 @@ function renderEditor(){
   const noteField = t.fields.find(f=>f.key==='note');
   const preview = fresh && draft.pending && draft.pending.length ? scanPreviewHTML() : '';
   const oldDoc = renewing ? docById(draft.id) : null;
-  const title = renewing ? 'Renew '+docTitle(oldDoc||{typeId:draft.typeId, values:{}}).toLowerCase() : isNew ? (draft.scan ? 'Check details' : 'Add document') : 'Edit '+docTitle({typeId:draft.typeId, values:draft.values});
+  const title = renewing ? 'Renew '+docTitleInline(oldDoc||{typeId:draft.typeId, values:{}}) : isNew ? (draft.scan ? 'Check details' : 'Add document') : 'Edit '+docTitle({typeId:draft.typeId, values:draft.values});
   return paneTop(title) + (preview ? `<div class="editor-split"><div class="split-left">${preview}</div><div class="split-right">` : '') + `
     ${renewing ? `<div class="info"><i class="ti ti-refresh" aria-hidden="true"></i><span>Enter the new one’s details. When you save, the current version and its images move to History.</span></div>` : ''}
     ${fresh ? scanStatusHTML() : ''}
     ${!fresh ? '' : (draft.pending && draft.pending.length ? editorImagesHTML(t) : '')}
     ${typePicker}${renewing ? '' : ownerPicker}
+    ${titleInputHTML(t)}
     <div id="editor-fields">${fields}</div>
     <div class="field${draft.errors.reminders?' invalid':''}"><span class="label">Reminders</span>${rem}
       <button class="mini-btn" data-act="addReminder"><i class="ti ti-plus" aria-hidden="true"></i>Add reminder</button>
@@ -1004,6 +1016,8 @@ async function saveDraft(){
         else if(existing && existing.sealed && existing.sealed[f.key]){ sealed[f.key] = existing.sealed[f.key]; masks[f.key] = existing.masks[f.key]||''; }
       } else if(v) values[f.key] = v;
     }
+    const ttl = String(draft.values.title||'').trim().slice(0, TITLE_MAX);
+    if(ttl) values.title = ttl;
   }catch(e){
     _saving = false; console.error(e);
     toast('Couldn’t encrypt the sensitive fields. Nothing was saved.'); return;
@@ -3208,12 +3222,12 @@ function calendarEvents(d, today){
     const r = d.renewal || {};
     const due = parseISO(r.expectedBy);
     if(!due || daysBetween(today, due) < 0) return [];
-    return [{ uid:`exp-${d.id}-followup@${CAL_DOMAIN}`, date:r.expectedBy, title:`Check on ${ownerPossessive(d).toLowerCase()} ${docTitle(d).toLowerCase()} renewal`,
+    return [{ uid:`exp-${d.id}-followup@${CAL_DOMAIN}`, date:r.expectedBy, title:`Check on ${ownerPossessive(d).toLowerCase()} ${docTitleInline(d)} renewal`,
       desc:`The renewal you applied for on ${fmtDateLong(r.appliedOn)} was expected today. If it has arrived, open Expiry and choose Renew → I have the new one.` }];
   }
   if(st==='archived' || st==='expired') return [];
   const exp = parseISO(d.values.expiry); if(!exp) return [];
-  const title = `${ownerPossessive(d)} ${docTitle(d).toLowerCase()} expires ${fmtDateLong(d.values.expiry)}`;
+  const title = `${ownerPossessive(d)} ${docTitleInline(d)} expires ${fmtDateLong(d.values.expiry)}`;
   const t = typeById(d.typeId);
   const hint = t.id==='passport' ? ' Many countries need 6 months’ validity to enter, so start the renewal now.' : ' Start the renewal now.';
   const out = [];
@@ -3433,7 +3447,7 @@ function openRenewSheet(id){
   const t = typeById(d.typeId), p = profileById(d.ownerId);
   const renewing = d.state==='renewing';
   const entry = { kind:'sheet', renew:true, docId:id,
-    render:()=>`<h3>Renew ${esc(docTitle(d).toLowerCase())}</h3>
+    render:()=>`<h3>Renew ${esc(docTitleInline(d))}</h3>
       <p class="sub">${p?esc(p.name)+' · ':''}${d.values.expiry ? (docStatus(d)==='expired' ? 'expired ' : 'expires ')+esc(fmtDate(d.values.expiry)) : ''}</p>
       <button class="opt" data-act="renewNew" data-id="${esc(id)}"><i class="ti ti-circle-check" aria-hidden="true"></i><div><div class="opt-t">I have the new one</div><div class="opt-s">Scan it or enter the details</div></div></button>
       <button class="opt" data-act="renewProgress" data-id="${esc(id)}"><i class="ti ti-hourglass" aria-hidden="true"></i><div><div class="opt-t">${renewing?'Update renewal details':'Renewal in progress'}</div><div class="opt-s">Applied, waiting for it</div></div></button>
@@ -3443,7 +3457,7 @@ function openRenewSheet(id){
 }
 function renewMethodSheet(id){
   replaceTop({ kind:'sheet', target:{ mode:'renew', id },
-    render:()=>`<h3>The new ${esc(docTitle(docById(id)).toLowerCase())}</h3>
+    render:()=>`<h3>The new ${esc(docTitleInline(docById(id)))}</h3>
       <button class="opt" data-act="renewMethod" data-m="scan" data-id="${esc(id)}"><i class="ti ti-scan" aria-hidden="true"></i><div><div class="opt-t">Scan with camera</div><div class="opt-s">Details are read on this phone</div></div></button>
       <button class="opt" data-act="renewMethod" data-m="photo" data-id="${esc(id)}"><i class="ti ti-photo" aria-hidden="true"></i><div><div class="opt-t">Choose photo</div><div class="opt-s">From your gallery</div></div></button>
       <button class="opt" data-act="renewMethod" data-m="file" data-id="${esc(id)}"><i class="ti ti-file-type-pdf" aria-hidden="true"></i><div><div class="opt-t">Import file</div><div class="opt-s">PDF or image</div></div></button>

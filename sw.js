@@ -1,5 +1,5 @@
 // Expiry Service Worker — installability + offline. Bump CACHE_NAME whenever a precached file changes.
-const CACHE_NAME = 'expiry-m9-1';
+const CACHE_NAME = 'expiry-m9-2';
 const PRECACHE_URLS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png',
   './icon-maskable-512.png', './apple-touch-icon.png', './favicon-32.png'];
 // Fonts and the icon font come from CDNs: cached the first time they load so the app works offline.

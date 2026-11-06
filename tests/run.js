@@ -170,6 +170,34 @@ async function revealWithPassword(a, pw = PW){
 }
 
 async function main(){
+  /* ================= document title ================= */
+  {
+    const D = await open({ idb: new IDBFactory() });
+    await setup(D);
+    await D.click('[data-act="openAdd"]'); await D.click('[data-act="addMethod"][data-m="manual"]');
+    await D.click('[data-act="draftType"][data-id="vehicle-registration"]');
+    const ti = D.$('#f-title');
+    record('DT1. Editor has a Document title field, max 25, type name as placeholder', !!ti && ti.getAttribute('maxlength') === '25' && ti.placeholder === 'Vehicle registration');
+    await D.type('#f-title', 'Jeeb Registration'); await D.type('#f-ref', '83639/H'); await D.type('#f-expiry', '2027-04-19');
+    await D.click('[data-act="saveDoc"]'); await D.waitFor(() => !D.ev('_saving')); await sleep(10);
+    const doc = JSON.parse(D.ev('JSON.stringify(state.documents[0])'));
+    record('DT2. Title is saved with the document', doc.values.title === 'Jeeb Registration');
+    record('DT3. Detail page title is the document title, type name in the line below', /Jeeb Registration/.test(D.text('#side-pane')) && /Vehicle registration · Salim/.test(D.text('#side-pane .detail-head')));
+    D.ev('closeAllPanes()'); await sleep(10);
+    record('DT4. Home list shows the title', D.$$('#doc-list .row-title').some(e => e.textContent === 'Jeeb Registration'));
+    const ev = JSON.parse(D.ev(`JSON.stringify(calendarEvents(state.documents[0]))`));
+    record('DT5. Calendar keeps the title as typed', ev.length > 0 && ev.every(e => /Jeeb Registration expires/.test(e.title)));
+    D.ev(`ui.search='jeeb'; renderHome()`); await sleep(5);
+    record('DT6. Search finds it by title', D.$$('#doc-list .row-title').some(e => e.textContent === 'Jeeb Registration'));
+    D.ev(`ui.search=''; renderHome()`);
+    D.ev(`draft = renewDraft(state.documents[0])`);
+    record('DT7. Renewing keeps the title', D.ev('draft.values.title') === 'Jeeb Registration');
+    D.ev(`draft = draftFromDoc(state.documents[0]); draft.values.title=''`);
+    D.ev(`nav.push({kind:'pane', screen:'edit'}); renderSide(topPane())`); await sleep(5);
+    await D.click('[data-act="saveDoc"]'); await D.waitFor(() => !D.ev('_saving')); await sleep(10);
+    record('DT8. Clearing the title falls back to the type name', D.ev('state.documents[0].values.title') === undefined && D.ev('docTitle(state.documents[0])') === 'Vehicle registration');
+    record('DT9. Titles longer than 25 characters are cut', D.ev(`docTitle({typeId:'other', values:{title:'A'.repeat(40)}})`).length === 25);
+  }
   /* ================= pure logic ================= */
   {
     const a = await open();
