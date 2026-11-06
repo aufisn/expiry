@@ -172,6 +172,23 @@ async function revealWithPassword(a, pw = PW){
 }
 
 async function main(){
+  /* ================= search survives the keyboard ================= */
+  {
+    const S = await open(); await setup(S);
+    await addDoc(S, { type: 'passport', month: '2027-01-10' });
+    await S.click('[data-act="toggleSearch"]');
+    const box = S.$('#search-input');
+    record('SK1. Search opens focused', !!box && S.d.activeElement === box);
+    let renders = 0; const orig = S.w.renderHome; S.w.eval('var __rh = renderHome; renderHome = function(){ window.__renders = (window.__renders||0)+1; return __rh.apply(this, arguments); }');
+    Object.defineProperty(S.w, 'innerHeight', { configurable: true, value: 400 });
+    S.w.dispatchEvent(new S.w.Event('resize')); await sleep(5);
+    record('SK2. Keyboard opening (height only) leaves the search box alone', S.$('#search-input') === box && S.d.activeElement === box && !S.w.__renders);
+    await S.type('#search-input', 'pass');
+    Object.defineProperty(S.w, 'innerWidth', { configurable: true, value: 800 });
+    S.w.dispatchEvent(new S.w.Event('resize')); await sleep(5);
+    record('SK3. Unfolding redraws but keeps typing in search', S.w.__renders >= 1 && S.d.activeElement && S.d.activeElement.id === 'search-input' && S.$('#search-input').value === 'pass');
+  }
+
   /* ================= calendar view ================= */
   {
     const C = await open({ idb: new IDBFactory() }); // today is 6 Nov 2026

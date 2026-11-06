@@ -1912,7 +1912,16 @@ function layoutMode(){
 }
 function applyLayoutMode(){ const m = layoutMode(); if(document.documentElement.getAttribute('data-layout')!==m) document.documentElement.setAttribute('data-layout', m); }
 applyLayoutMode();
-window.addEventListener('resize', ()=>{ applyLayoutMode(); renderHome(); });
+// Redraw Home only when the width changes (folding/unfolding). The on-screen keyboard only changes the
+// height; redrawing then would replace the search box and close the keyboard straight away.
+let _lastW = window.innerWidth;
+window.addEventListener('resize', ()=>{
+  applyLayoutMode();
+  if(window.innerWidth===_lastW) return;
+  _lastW = window.innerWidth;
+  const a = document.activeElement;
+  if(a && a.id==='search-input') renderHomeKeepSearchFocus(); else renderHome();
+});
 
 /* =====================================================================================
    SECURITY (M2) — ported from Mandoos (GITHUB-SYNC-AND-PWA-GUIDE.md §13–14) plus a

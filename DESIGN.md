@@ -12,7 +12,7 @@ details from a scan, and reminds you through your calendar before anything runs 
 Status: design agreed 2026-11-06. **M1–M9 built** (records, profiles, Fold layouts, app lock,
 fingerprint, sensitive vault, auto-lock, encrypted photos and PDFs, scanning and reading details,
 calendar reminders and Home summary, renew flow and History, encrypted GitHub sync, backups,
-type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you, Start fresh for Google Calendar; 327 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
+type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you, Start fresh for Google Calendar, search keeps the keyboard open; 330 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
 
 M2 notes (decisions made while building):
 - The app lock is **required** in Expiry (optional in Mandoos): setup asks for a password (8+ characters)
