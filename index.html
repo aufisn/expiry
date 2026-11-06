@@ -1285,6 +1285,8 @@ function renderSettings(){
       </div>
       <div class="sec-actions"><button class="btn" data-act="calEverything"><i class="ti ti-calendar-plus" aria-hidden="true"></i>Add all reminders to calendar</button></div>
       <p class="muted">Use this on a new phone, or if you cleared your calendar. Events are updated, not duplicated.${calNeedsUpdate().length ? ' '+calNeedsUpdate().length+' document(s) not up to date.' : ''}</p>
+      <div class="sec-actions"><button class="btn" data-act="calFresh"><i class="ti ti-refresh" aria-hidden="true"></i>Start fresh in Google Calendar</button></div>
+      <p class="muted">If Google Calendar left out some reminders when you imported.</p>
     </div>
     <div class="sec-title">Reading scans</div>
     <div class="card" style="padding:10px 14px">
@@ -1761,10 +1763,19 @@ const ACT = {
   conflictApply: ()=>{ const e = topEntry(); if(!e || !e.conflicts) return; const pick = e.pick; e.finish(pick); pop(); },
   calDoc: el=>{ const d = docById(el.dataset.id); if(d) openCalendarSheet([d], { title: d.cal ? 'Update your calendar' : 'Add reminders to your calendar' }); },
   calAll: ()=>openCalendarSheet(calNeedsUpdate(), { all:true, title:'Update your calendar' }),
-  calCheck: ()=>{ const docs = calUnconfirmed(); if(!docs.length) return;
+  calCheck: ()=>{ if(!calUnconfirmed().length) return;
+    const docs = state.documents.filter(d=>calendarEvents(d).length);
     const res = { text: buildIcs(docs).text, marks: docs.map(d=>({ d })) };
     const evs = docs.flatMap(d=>calendarEvents(d)).sort((a,b)=>a.date<b.date?-1:1);
-    openSheet(calConfirmEntry({ res, fileName: calFileName(docs, false), first: evs[0] || null }, 'earlier')); },
+    openSheet(calConfirmEntry({ res, fileName: calFileName(docs, true), first: evs[0] || null }, 'earlier')); },
+  calFresh: ()=>openSheet({ render:()=>`<h3>Start fresh in Google Calendar?</h3>
+      <p class="sub">Google skips events it has seen before, even ones you deleted. This gives every Expiry reminder a new ID, so the next file adds them all.</p>
+      <ol class="steps"><li>First remove the old ones: on calendar.google.com search <b>expires</b> and delete the Expiry reminders it finds (or they’ll show twice).</li>
+        <li>Then tap Start fresh and import the new file.</li></ol>
+      <button class="opt" data-act="sheetChoice" data-i="0"><i class="ti ti-refresh" aria-hidden="true"></i><div><div class="opt-t">Start fresh</div><div class="opt-s">New IDs for every reminder, then the calendar file</div></div></button>
+      <button class="opt" data-act="back"><i class="ti ti-x" aria-hidden="true"></i><div><div class="opt-t">Cancel</div></div></button>`,
+    choices:[()=>{ state.settings.calGen = (state.settings.calGen||0) + 1; save(); pop();
+      openCalendarSheet(state.documents.filter(d=>calendarEvents(d).length || d.cal), { all:true, title:'Add all reminders to your calendar' }); }] }),
   calEverything: ()=>openCalendarSheet(state.documents.filter(d=>calendarEvents(d).length || d.cal), { all:true, title:'Add all reminders to your calendar' }),
   calDownload: ()=>calDeliver('download'),
   calShare: ()=>calDeliver('share'),
@@ -3417,6 +3428,7 @@ document.addEventListener('visibilitychange', ()=>{
    Calendars sync to the cloud, so events carry no reference numbers — only type, owner, dates.
    ===================================================================================== */
 const CAL_DOMAIN = 'expiry.app';
+function calGen(){ const g = state.settings && state.settings.calGen; return g ? '-g'+g : ''; }
 function ownerPossessive(d){
   const p = profileById(d.ownerId);
   if(!p || p.isSelf) return 'Your';
@@ -3431,7 +3443,7 @@ function calendarEvents(d, today){
     const r = d.renewal || {};
     const due = parseISO(r.expectedBy);
     if(!due || daysBetween(today, due) < 0) return [];
-    return [{ uid:`exp-${d.id}-followup@${CAL_DOMAIN}`, date:r.expectedBy, title:`Check on ${ownerPossessive(d).toLowerCase()} ${docTitleInline(d)} renewal`,
+    return [{ uid:`exp-${d.id}-followup${calGen()}@${CAL_DOMAIN}`, date:r.expectedBy, title:`Check on ${ownerPossessive(d).toLowerCase()} ${docTitleInline(d)} renewal`,
       desc:`The renewal you applied for on ${fmtDateLong(r.appliedOn)} was expected today. If it has arrived, open Expiry and choose Renew → I have the new one.` }];
   }
   if(st==='archived' || st==='expired') return [];
@@ -3443,12 +3455,12 @@ function calendarEvents(d, today){
   for(const r of (d.reminders||[])){
     const date = shiftDate(exp, -r.amount, r.unit);
     if(daysBetween(today, date) < 0) continue;
-    out.push({ uid:`exp-${d.id}-${r.amount}${r.unit}@${CAL_DOMAIN}`, date:toISO(date), title, desc:`Reminder ${leadLabel(r)} before it expires.${hint}` });
+    out.push({ uid:`exp-${d.id}-${r.amount}${r.unit}${calGen()}@${CAL_DOMAIN}`, date:toISO(date), title, desc:`Reminder ${leadLabel(r)} before it expires.${hint}` });
   }
   if(!out.length && (d.reminders||[]).length){
     // every reminder date has passed but it hasn't expired: one reminder tomorrow
     const tm = shiftDate(today, 1, 'days');
-    if(daysBetween(tm, exp) >= 0) out.push({ uid:`exp-${d.id}-soon@${CAL_DOMAIN}`, date:toISO(tm), title, desc:`It expires in ${daysBetween(today, exp)} days.${hint}` });
+    if(daysBetween(tm, exp) >= 0) out.push({ uid:`exp-${d.id}-soon${calGen()}@${CAL_DOMAIN}`, date:toISO(tm), title, desc:`It expires in ${daysBetween(today, exp)} days.${hint}` });
   }
   return out.sort((a,b)=>a.date<b.date?-1:1);
 }
@@ -3559,16 +3571,29 @@ function openCalendarSheet(docs, opts){
   const file = calFile(res.text, fileName);
   const share = canShareFile(file);
   const evs = docs.flatMap(d=>calendarEvents(d).map(e=>e));
-  const list = evs.slice(0, 6).map(e=>`<div class="kv"><span class="k">${esc(fmtDate(e.date))}</span><span class="v" style="font-weight:400">${esc(e.title)}</span></div>`).join('');
+  const list = calPeopleHTML(docs);
   const entry = { calendar:true, res, fileName, first: evs[0] || null,
     render:()=>`<h3>${opts.title || 'Add reminders to your calendar'}</h3>
       <p class="sub">${res.count} reminder${res.count===1?'':'s'} at ${esc(state.settings.reminderTime||'09:00')}${res.cancelled?`, and ${res.cancelled} old one${res.cancelled===1?'':'s'} removed`:''}. Your calendar will alert you even if you don’t open Expiry.</p>
-      ${list?`<div class="card">${list}${evs.length>6?`<div class="kv"><span class="muted">and ${evs.length-6} more</span></div>`:''}</div>`:''}
+      ${list}
       <div class="info"><i class="ti ti-info-circle" aria-hidden="true"></i><span>Expiry saves a file named <b>${esc(fileName)}</b>. Your calendar only has the reminders once you open that file and save the events. Adding it again later updates them instead of duplicating.</span></div>
       <button class="btn primary" style="width:100%;margin-bottom:8px" data-act="calDownload"><i class="ti ti-calendar-plus" aria-hidden="true"></i>Open in calendar app</button>
       ${share?`<button class="btn" style="width:100%;margin-bottom:8px" data-act="calShare"><i class="ti ti-share" aria-hidden="true"></i>Share file…</button>`:''}
       <button class="btn" style="width:100%" data-act="back">Later</button>` };
   openSheet(entry);
+}
+// In the file, per person: how many reminders and the dates they fall on
+function calPeopleHTML(docs){
+  const by = new Map();
+  for(const d of docs){ const evs = calendarEvents(d); if(!evs.length) continue;
+    const k = d.ownerId; if(!by.has(k)) by.set(k, []); by.get(k).push(...evs); }
+  if(!by.size) return '';
+  const rows = [...by.entries()].map(([pid, evs])=>{
+    const p = profileById(pid); evs.sort((a,b)=>a.date<b.date?-1:1);
+    const years = [...new Set(evs.map(e=>e.date.slice(0,4)))];
+    return `<div class="kv"><span class="k">${esc(p ? p.name : 'Unknown')}</span><span class="v" style="font-weight:400">${evs.length} reminder${evs.length===1?'':'s'} · ${esc(fmtDate(evs[0].date))}${evs.length>1?' to '+esc(fmtDate(evs[evs.length-1].date)):''}</span></div>`;
+  }).join('');
+  return `<div class="card cal-people"><div class="muted" style="padding:2px 0 4px">In this file</div>${rows}</div>`;
 }
 async function calDeliver(how){
   const e = topEntry(); if(!e || !(e.calendar || e.calConfirm)) return;
@@ -3590,10 +3615,11 @@ function calConfirmEntry(e, how){
     render:function(){ const me = this; return `<h3>Did the reminders reach your calendar?</h3>
       <p class="sub">${how==='earlier' ? 'Expiry gave you a calendar file for these reminders earlier, but you haven’t confirmed they arrived. Look in your calendar, or save the file again.'
         : `${how==='share' ? 'You shared' : 'Expiry saved'} <b>${esc(me.fileName)}</b>${how==='share' ? '' : ' to Downloads'}. Nothing is in your calendar until you open it and save the events.`}</p>
+      ${calPeopleHTML((me.docIds||[]).map(docById).filter(Boolean))}
       <ol class="steps">
         ${how==='earlier' ? '' : how==='share' ? '<li>In the list that opened, choose <b>Calendar</b> (Samsung) or <b>Google Calendar</b>.</li>'
           : '<li>Pull down the notification shade and tap the file. Or open <b>My Files → Downloads</b> and tap it.</li><li>Choose <b>Calendar</b> (Samsung) or <b>Google Calendar</b>, then <b>Save</b> or <b>Import</b>.</li>'}
-        ${first ? `<li>Check: open your calendar on <b>${esc(fmtDateLong(first.date))}</b>, and look for “${esc(first.title)}” at ${esc(state.settings.reminderTime||'09:00')}.</li>` : ''}
+        ${first ? `<li>Check: open your calendar on <b>${esc(fmtDateLong(first.date))}</b>, and look for “${esc(first.title)}” at ${esc(state.settings.reminderTime||'09:00')}. On calendar.google.com, searching <b>expires</b> lists them all.</li>` : ''}
       </ol>
       <button class="btn primary" style="width:100%;margin-bottom:8px" data-act="calConfirmed"><i class="ti ti-calendar-check" aria-hidden="true"></i>Yes, they’re in my calendar</button>
       <button class="btn" style="width:100%;margin-bottom:8px" data-act="calDownload"><i class="ti ti-download" aria-hidden="true"></i>Save the file again</button>
@@ -3601,7 +3627,8 @@ function calConfirmEntry(e, how){
       <button class="btn" style="width:100%;margin-bottom:8px" data-act="calHelp" aria-expanded="${me.help}"><i class="ti ti-help-circle" aria-hidden="true"></i>It didn’t work</button>
       ${me.help ? `<div class="info"><i class="ti ti-bulb" aria-hidden="true"></i><span>If the phone won’t open the file, use Google Calendar on the Mac: share the file to yourself (email or Drive),
         then open <b>calendar.google.com → Settings → Import and export → Import</b> and choose it. Google Calendar syncs to the Fold, and Samsung Calendar shows it
-        when your Google account is added there. Then come back and tap “Yes”.</span></div>` : ''}
+        when your Google account is added there. Then come back and tap “Yes”.<br><br>If Google says some events weren’t imported, or someone’s reminders are missing,
+        use <b>Settings → Start fresh in Google Calendar</b>: it gives every reminder a new ID so Google takes them all.</span></div>` : ''}
       <button class="btn" style="width:100%" data-act="back">Not yet</button>`; } };
 }
 function calConfirm(){

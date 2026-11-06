@@ -12,7 +12,7 @@ details from a scan, and reminds you through your calendar before anything runs 
 Status: design agreed 2026-11-06. **M1–M9 built** (records, profiles, Fold layouts, app lock,
 fingerprint, sensitive vault, auto-lock, encrypted photos and PDFs, scanning and reading details,
 calendar reminders and Home summary, renew flow and History, encrypted GitHub sync, backups,
-type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you; 322 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
+type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you, Start fresh for Google Calendar; 327 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
 
 M2 notes (decisions made while building):
 - The app lock is **required** in Expiry (optional in Mandoos): setup asks for a password (8+ characters)
@@ -53,6 +53,10 @@ M5 notes:
   asks "Did the reminders reach your calendar?" with how to open the file and which event to look for, plus
   the Google Calendar import route if the phone won't open it. Until you confirm, the document says "not
   confirmed" and Home offers "Check". Files sent before this change count as not confirmed.
+- Every calendar sheet shows who is in the file (per person: number of reminders and their date range).
+  "Check" re-sends all documents' reminders. Settings → "Start fresh in Google Calendar" adds a generation
+  to every event ID (`…-g1@expiry.app`), because Google silently skips events whose ID it has seen before,
+  even deleted ones; the old IDs are sent as cancellations.
 - After saving a new or changed document Expiry offers the calendar; each document shows its calendar status;
   Home shows a nudge when documents aren't up to date; Settings has "Add all reminders to calendar".
 

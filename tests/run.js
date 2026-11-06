@@ -873,6 +873,23 @@ async function main(){
     record('Q22. Calendar link opens that document after unlock, and the link is cleared', dl.d.body.classList.contains('pane-open') && /Insurance/.test(dl.text('#side-pane .topbar')) && dl.w.location.hash === '');
     const icsE = (s) => a.ev(`icsEscape(${JSON.stringify(s)})`);
     record('Q23. Text is escaped for calendar files', icsE('a,b;c\\d\ne') === 'a\\,b\\;c\\\\d\\ne');
+    // who's in the file, Check sends everything, Start fresh gives new IDs
+    a.ev(`state.documents.push(Object.assign(JSON.parse(JSON.stringify(docById(${JSON.stringify(iid)}))), {id:'sal1', ownerId:state.profiles[0].id, typeId:'passport', reminders:[{id:'r9',amount:9,unit:'months'}], values:{expiry:'2031-03-10'}, cal:null})); save();`);
+    await a.click('[data-act="calEverything"]');
+    record('Q24. The calendar sheet lists each person and their reminder dates', /In this file/.test(a.text('#sheet')) && /Amina Aufi.*reminder/.test(a.text('#sheet')) && /Salim.*1 reminder · 10 Jun 2030/.test(a.text('#sheet')), a.text('#sheet .cal-people'));
+    await a.click('[data-act="calDownload"]'); await sleep(20);
+    record('Q25. The 2030 reminder is in the file', (await lastIcs()).includes('DTSTART:20300610T073000'));
+    await a.click('#sheet [data-act="back"]');
+    a.ev(`docById(${JSON.stringify(iid)}).cal.confirmed = true; save(); renderHome()`);
+    await a.click('[data-act="calCheck"]');
+    record('Q26. “Check” sends every document’s reminders, not only the unconfirmed one', a.ev('topEntry().docIds.length') === 2 && /Amina Aufi/.test(a.text('#sheet')) && /Salim/.test(a.text('#sheet')));
+    await a.click('#sheet [data-act="back"]');
+    await a.click('[data-act="calFresh"]');
+    record('Q27. Start fresh explains why and what to delete first', /Google skips events it has seen before/.test(a.text('#sheet')));
+    await a.click('#sheet [data-act="sheetChoice"][data-i="0"]'); await sleep(10);
+    await a.click('[data-act="calDownload"]'); await sleep(20);
+    const icsF = (await lastIcs()).replace(/\r\n /g, '');
+    record('Q28. Start fresh: every reminder has a new ID; the old ones are cancelled', icsF.includes('UID:exp-sal1-9months-g1@expiry.app') && icsF.includes(`UID:exp-${iid}-14days-g1@expiry.app`) && /UID:exp-sal1-9months@expiry.app\r\n[^]*?STATUS:CANCELLED/.test(icsF) && a.ev('state.settings.calGen') === 1);
   }
 
   /* ================= renew (M6) ================= */
