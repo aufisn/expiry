@@ -186,8 +186,14 @@
   .viewer-img{max-width:100%; max-height:100%; object-fit:contain; margin:auto; cursor:zoom-in;}
   .viewer-img.zoomed{max-width:none; max-height:none; width:250%; cursor:zoom-out; margin:0;}
   .pdf-page{background:#fff; max-width:1400px; box-shadow:0 2px 10px rgba(0,0,0,.5);}
-  .viewer-nav{display:flex; justify-content:space-between; padding:6px 12px calc(env(safe-area-inset-bottom) + 8px); background:rgba(0,0,0,.8);}
-  .viewer-nav .icon-btn{color:#fff;}
+  .viewer-stage{position:relative; flex:1; min-height:0; display:flex; flex-direction:column;}
+  .viewer-arrow{position:absolute; top:50%; transform:translateY(-50%); width:52px; height:52px; border-radius:50%; border:1px solid rgba(255,255,255,.25);
+    background:rgba(0,0,0,.55); color:#fff; display:flex; align-items:center; justify-content:center; font-size:28px; z-index:2; cursor:pointer;}
+  .viewer-arrow.prev{left:10px;} .viewer-arrow.next{right:10px;}
+  .viewer-arrow:active{background:rgba(255,255,255,.25);}
+  .viewer-dots{display:flex; justify-content:center; gap:8px; padding:10px 0 calc(env(safe-area-inset-bottom) + 12px);}
+  .viewer-dots button{width:9px; height:9px; padding:0; border-radius:50%; border:none; background:rgba(255,255,255,.35); cursor:pointer;}
+  .viewer-dots button.on{background:#fff; width:22px; border-radius:5px;}
   .actions{display:flex; gap:8px; margin:14px 0;}
   .btn{flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:11px 14px; border-radius:10px; border:1px solid var(--border-strong); background:var(--surface); font-weight:500;}
   .btn.primary{background:var(--accent); border-color:var(--accent); color:var(--on-accent);}
@@ -242,7 +248,7 @@
   /* while revealed, push pane content down so the bar never covers the header */
   body.revealing #list-pane,body.revealing #side-pane{padding-top:calc(env(safe-area-inset-top) + 56px) !important;}
   #sheet:not(.hidden) ~ #toast{bottom:auto; top:calc(env(safe-area-inset-top) + 12px);}
-  #sheet.viewer-mode ~ #reveal-bar{top:auto; bottom:calc(env(safe-area-inset-bottom) + 64px);}
+  #sheet.viewer-mode ~ #reveal-bar{top:auto; bottom:calc(env(safe-area-inset-bottom) + 40px);}
   #reveal-bar button{background:var(--blue); color:var(--bg); border:none; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600;}
 
   /* ---------- welcome / setup / lock screen ---------- */
@@ -1638,10 +1644,7 @@ const ACT = {
   addPendingPages: ()=>pickSourceSheet({mode:'draft'}),
   removePending: el=>{ const p = draft.pending.splice(+el.dataset.i, 1)[0]; if(p) URL.revokeObjectURL(p.url); draft.dirty = true; rerenderEditor(); },
   pickSource: el=>{ const top = topEntry(); pickFiles(el.dataset.s, top.target); },
-  viewerStep: el=>{ const v = topEntry(); if(!v || !v.viewer) return; const atts = attsFor(v.docId, v.hid); const n = v.index + (+el.dataset.d);
-    if(n<0 || n>=atts.length) return;
-    if(atts[n].sensitive && !isRevealedFor(v.docId)){ pop(); openRevealPrompt(v.docId); return; }
-    replaceTop(viewerEntry(v.docId, n, v.hid)); },
+  viewerStep: el=>viewerStepBy(+el.dataset.d),
   viewerZoom: el=>{ el.classList.toggle('zoomed'); },
   attMenu: ()=>attMenu(),
   backupMake: el=>startBackup(el.dataset.k==='plain' ? 'plain' : 'encrypted'),
@@ -2709,6 +2712,29 @@ function openViewer(docId, index, hid){
   if(att.sensitive && !isRevealedFor(docId)){ openRevealPrompt(docId); return; }
   push(viewerEntry(docId, index, hid));
 }
+function viewerStepBy(d){
+  const v = topEntry(); if(!v || !v.viewer || !d) return;
+  const atts = attsFor(v.docId, v.hid); const n = v.index + d;
+  if(n<0 || n>=atts.length) return;
+  if(atts[n].sensitive && !isRevealedFor(v.docId)){ pop(); openRevealPrompt(v.docId); return; }
+  replaceTop(viewerEntry(v.docId, n, v.hid));
+}
+// swipe left/right in the viewer (one finger, mostly sideways, not while zoomed in)
+let _vSwipe = null;
+document.addEventListener('touchstart', e=>{
+  const body = e.target.closest && e.target.closest('#viewer-body');
+  _vSwipe = body && e.touches.length===1 && !body.querySelector('.viewer-img.zoomed') ? { x:e.touches[0].clientX, y:e.touches[0].clientY, t:Date.now() } : null;
+}, { passive:true });
+document.addEventListener('touchend', e=>{
+  const s0 = _vSwipe; _vSwipe = null;
+  if(!s0 || e.changedTouches.length!==1) return;
+  const dx = e.changedTouches[0].clientX - s0.x, dy = e.changedTouches[0].clientY - s0.y;
+  if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5 && Date.now()-s0.t < 800) viewerStepBy(dx < 0 ? 1 : -1);
+}, { passive:true });
+document.addEventListener('keydown', e=>{
+  const v = topEntry(); if(!v || !v.viewer) return;
+  if(e.key==='ArrowRight') viewerStepBy(1); else if(e.key==='ArrowLeft') viewerStepBy(-1);
+});
 function viewerHTML(docId, index, hid){
   const atts = attsFor(docId, hid); const att = atts[index];
   if(!att) return '';
@@ -2717,10 +2743,12 @@ function viewerHTML(docId, index, hid){
       <div class="viewer-title"><div>${esc(att.label)}</div><div class="viewer-sub">${index+1} of ${atts.length} · ${esc(bytesLabel(att.size))}${att.sensitive?' · sensitive':''}</div></div>
       <button class="icon-btn" data-act="attMenu" aria-label="Image options"><i class="ti ti-dots-vertical"></i></button>
     </div>
-    <div class="viewer-body" id="viewer-body"><div class="muted" style="color:#aaa;padding:40px;text-align:center">Opening…</div></div>
-    ${atts.length>1 ? `<div class="viewer-nav">
-      <button class="icon-btn" data-act="viewerStep" data-d="-1" aria-label="Previous"${index===0?' style="visibility:hidden"':''}><i class="ti ti-chevron-left"></i></button>
-      <button class="icon-btn" data-act="viewerStep" data-d="1" aria-label="Next"${index===atts.length-1?' style="visibility:hidden"':''}><i class="ti ti-chevron-right"></i></button></div>` : ''}`;
+    <div class="viewer-stage">
+      <div class="viewer-body" id="viewer-body"><div class="muted" style="color:#aaa;padding:40px;text-align:center">Opening…</div></div>
+      ${atts.length>1 && index>0 ? `<button class="viewer-arrow prev" data-act="viewerStep" data-d="-1" aria-label="Previous: ${esc(atts[index-1].label)}"><i class="ti ti-chevron-left"></i></button>` : ''}
+      ${atts.length>1 && index<atts.length-1 ? `<button class="viewer-arrow next" data-act="viewerStep" data-d="1" aria-label="Next: ${esc(atts[index+1].label)}"><i class="ti ti-chevron-right"></i></button>` : ''}
+    </div>
+    ${atts.length>1 ? `<div class="viewer-dots">${atts.map((a,i)=>`<button class="${i===index?'on':''}" data-act="viewerStep" data-d="${i-index}" aria-label="${esc(a.label)}"${i===index?' aria-current="true"':''}></button>`).join('')}</div>` : ''}`;
 }
 async function loadViewerContent(docId, index, hid){
   const att = attsFor(docId, hid)[index]; const body = $('viewer-body');

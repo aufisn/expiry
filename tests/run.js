@@ -543,8 +543,18 @@ async function main(){
     record('I10. Decrypted bytes match the original', Buffer.from(bytes).toString() === 'FRONT-IMAGE-BYTES-4111');
     await a.click('#side-pane .tile[data-act="openAtt"]'); await sleep(30);
     record('I11. Viewer opens full screen with the image', a.$('#sheet').classList.contains('viewer-mode') && !!a.$('#viewer-body img.viewer-img') && /1 of 2/.test(a.text('#sheet')));
-    await a.click('[data-act="viewerStep"][data-d="1"]'); await sleep(30);
-    record('I12. Next goes to the Back page', /Back/.test(a.text('.viewer-title')) && /2 of 2/.test(a.text('#sheet')));
+    record('I11b. Next arrow sits on the image (middle right), no previous on the first page, dots below', !!a.$('.viewer-stage .viewer-arrow.next') && !a.$('.viewer-arrow.prev') && a.$$('.viewer-dots button').length === 2 && !a.$('.viewer-nav'));
+    await a.click('.viewer-arrow.next'); await sleep(30);
+    record('I12. Next goes to the Back page', /Back/.test(a.text('.viewer-title')) && /2 of 2/.test(a.text('#sheet')) && !!a.$('.viewer-arrow.prev') && !a.$('.viewer-arrow.next'));
+    const swipe = async (x0, x1) => { const body = a.$('#viewer-body'); const T = (x) => [{ clientX: x, clientY: 300 }];
+      const ev = (type, list) => { const e = new a.w.Event(type, { bubbles: true }); e[type === 'touchend' ? 'changedTouches' : 'touches'] = list; e.touches = e.touches || []; if (type === 'touchend') e.touches = []; return e; };
+      body.dispatchEvent(ev('touchstart', T(x0))); body.dispatchEvent(ev('touchend', T(x1))); await sleep(30); };
+    await swipe(300, 100);
+    record('I12b. Swiping left on the last page does nothing', /2 of 2/.test(a.text('#sheet')));
+    await swipe(100, 300);
+    record('I12c. Swiping right goes back to Front', /1 of 2/.test(a.text('#sheet')));
+    await a.click('.viewer-dots button:nth-child(2)'); await sleep(30);
+    record('I12d. Tapping a dot jumps to that page', /2 of 2/.test(a.text('#sheet')));
     await a.click('[data-act="hideReveal"]'); await sleep(10);
     record('I13. Hiding closes the sensitive viewer and forgets the image URLs', !a.visible('#sheet') && a.ev('Object.keys(_urls).length') === 0);
     // add a non-sensitive document with a PDF via detail
