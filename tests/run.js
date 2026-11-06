@@ -197,6 +197,19 @@ async function main(){
     await D.click('[data-act="saveDoc"]'); await D.waitFor(() => !D.ev('_saving')); await sleep(10);
     record('DT8. Clearing the title falls back to the type name', D.ev('state.documents[0].values.title') === undefined && D.ev('docTitle(state.documents[0])') === 'Vehicle registration');
     record('DT9. Titles longer than 25 characters are cut', D.ev(`docTitle({typeId:'other', values:{title:'A'.repeat(40)}})`).length === 25);
+    // sort: expiry, then type name, then title — same result whatever order they were added in
+    const pid = D.ev('state.profiles[0].id');
+    D.ev(`state.documents = [
+      {id:'s1', typeId:'vehicle-registration', ownerId:'${pid}', values:{title:'Zed car', expiry:'2027-08-01'}, reminders:[], attachments:[], history:[], state:'active'},
+      {id:'s2', typeId:'passport', ownerId:'${pid}', values:{expiry:'2027-08-01'}, reminders:[], attachments:[], history:[], state:'active'},
+      {id:'s3', typeId:'vehicle-registration', ownerId:'${pid}', values:{title:'Alfa car', expiry:'2027-08-01'}, reminders:[], attachments:[], history:[], state:'active'},
+      {id:'s4', typeId:'other', ownerId:'${pid}', values:{title:'No date'}, reminders:[], attachments:[], history:[], state:'active'},
+      {id:'s5', typeId:'vehicle-registration', ownerId:'${pid}', values:{title:'Early', expiry:'2027-07-01'}, reminders:[], attachments:[], history:[], state:'active'}
+    ]; renderHome()`); await sleep(5);
+    const order = () => D.$$('#doc-list .row-title').map(e => e.textContent).join('|');
+    const first = order();
+    D.ev(`state.documents.reverse(); renderHome()`); await sleep(5);
+    record('DS1. List sorts by expiry, then type, then title, the same every time', first === 'Early|Passport|Alfa car|Zed car|No date' && order() === first);
   }
   /* ================= pure logic ================= */
   {

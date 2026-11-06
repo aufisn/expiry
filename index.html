@@ -535,6 +535,14 @@ function docTitle(doc){
   const v = t.titleKey && doc.values[t.titleKey];
   return (v && String(v).trim()) || t.name;
 }
+// list order: soonest expiry (none last), then type name A–Z, then title A–Z
+function compareDocs(a, b){
+  const ea = a.values.expiry || '9999-12-31', eb = b.values.expiry || '9999-12-31';
+  if(ea !== eb) return ea < eb ? -1 : 1;
+  const byType = typeById(a.typeId).name.localeCompare(typeById(b.typeId).name, undefined, {sensitivity:'base'});
+  if(byType) return byType;
+  return docTitle(a).localeCompare(docTitle(b), undefined, {sensitivity:'base', numeric:true});
+}
 // for use inside a sentence: a title you typed keeps its capitals, a type name is lowercased
 function docTitleInline(doc){ return ownTitle(doc) || docTitle(doc).toLowerCase(); }
 function maskValue(v){ const s = String(v||'').replace(/\s+/g,''); return s.length>4 ? '•••• '+s.slice(-4) : '••••'; }
@@ -748,7 +756,7 @@ function renderHome(){
       <div class="row-main"><div class="row-title">${esc(docTitle(d))}</div>${sub?`<div class="row-sub">${sub}</div>`:''}</div>
       <span class="badge st-${st}">${esc(badgeText(d, today))}</span></button>`;
   };
-  const sortByExpiry = (a,b)=> (a.d.values.expiry||'9999') < (b.d.values.expiry||'9999') ? -1 : 1;
+  const sortByExpiry = (a,b)=> compareDocs(a.d, b.d);
   let list = all.filter(x=>x.st!=='archived');
   if(ui.status) list = list.filter(x=>x.st===ui.status);
   list.sort(sortByExpiry);
