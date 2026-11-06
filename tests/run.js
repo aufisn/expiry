@@ -38,9 +38,11 @@ function makeAuthenticator(){
         const ext = a.prf ? { prf: { enabled: true, results: { first: await prfOut(secret, publicKey.extensions.prf.eval.first) } } } : {};
         return { rawId: id.buffer, response: { getPublicKey: () => spki, getPublicKeyAlgorithm: () => -7 }, getClientExtensionResults: () => ext };
       },
-      async get({ publicKey }){
+      async get({ publicKey, signal }){
         a.calls.push('get');
         if (a.mode === 'cancel'){ const e = new Error('cancelled'); e.name = 'NotAllowedError'; throw e; }
+        // 'hang': the phone never answers (seen on Android after a failed fingerprint), until the app cancels it
+        if (a.mode === 'hang') await new Promise((res, rej) => { if (signal) signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; rej(e); }); });
         const c = a.creds[b64u(publicKey.allowCredentials[0].id)];
         if (!c) throw new Error('unknown credential');
         const cd = Buffer.from(JSON.stringify({ type: 'webauthn.get', challenge: b64u(publicKey.challenge), origin: a.mode === 'badOrigin' ? 'https://evil.example' : 'https://localhost' }));
@@ -474,6 +476,32 @@ async function main(){
       await sleep(350);
       record(`F5. Fingerprint rejected when ${mode}`, c.visible('#lock-screen') && !c.visible('#app') && c.text('#lock-error').length > 0, c.text('#lock-error'));
     }
+    // retries: a failed or stuck fingerprint never blocks another try
+    auth.mode = 'cancel';
+    const r1 = await open({ storage: snap, auth });
+    await sleep(350);
+    record('F7. After a failed fingerprint the lock screen offers “Try fingerprint again” and the password', /Try fingerprint again/.test(r1.text('#lock-screen')) && !!r1.$('#lock-input') && /not recognised or cancelled/.test(r1.text('#lock-error')));
+    auth.calls.length = 0;
+    r1.d.dispatchEvent(new r1.w.Event('visibilitychange')); await sleep(350);
+    record('F8. It doesn’t pop the fingerprint up again by itself after a failure', !auth.calls.includes('get'));
+    await r1.click('[data-act="bioUnlock"]'); await sleep(50);
+    await r1.click('[data-act="bioUnlock"]'); await sleep(50);
+    record('F9. Each tap tries again', auth.calls.filter(c => c === 'get').length === 2 && r1.visible('#lock-screen'));
+    auth.mode = 'ok';
+    await r1.click('[data-act="bioUnlock"]'); await r1.waitFor(() => r1.visible('#app'));
+    record('F10. A later good fingerprint unlocks', r1.visible('#app'));
+    auth.mode = 'hang';
+    const r2 = await open({ storage: snap, auth });
+    await sleep(350);
+    record('F11. (setup) automatic fingerprint request left waiting', r2.ev('_bioInFlight') === true && r2.visible('#lock-screen'));
+    auth.mode = 'ok';
+    await r2.click('[data-act="bioUnlock"]'); await r2.waitFor(() => r2.visible('#app'));
+    record('F12. Tapping “Use fingerprint” cancels a stuck request and unlocks', r2.visible('#app') && r2.ev('_bioInFlight') === false && r2.text('#lock-error') === '');
+    auth.mode = 'hang';
+    const r3 = await open({ storage: snap, auth });
+    await sleep(350);
+    await r3.type('#lock-input', PW); await r3.click('[data-act="unlock"]'); await r3.waitFor(() => r3.visible('#app'));
+    record('F13. The password works while a fingerprint request is waiting', r3.visible('#app'));
     auth.mode = 'ok';
     const c = await open({ storage: snap, auth });
     await sleep(350);

@@ -1632,7 +1632,7 @@ const ACT = {
     const v = String(_plain[id][el.dataset.key]||'');
     if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(()=>toast('Copied'), ()=>toast('Couldn’t copy'));
   },
-  revealBio: el=>revealWithBio(el.dataset.id),
+  revealBio: el=>revealWithBio(el.dataset.id, true),
   openAtt: el=>openViewer(el.dataset.id, +el.dataset.i, el.dataset.h || null),
   addPages: el=>pickSourceSheet({mode:'doc', id:el.dataset.id}),
   addPendingPages: ()=>pickSourceSheet({mode:'draft'}),
@@ -1692,7 +1692,7 @@ const ACT = {
   revealPwd: el=>revealWithPassword(el.dataset.id),
   pwdOk: ()=>submitPwdDialog(),
   unlock: ()=>doUnlock(),
-  bioUnlock: ()=>doBioUnlock(),
+  bioUnlock: ()=>doBioUnlock(true),
   lockEye: ()=>{ const i = $('lock-input'); if(i) i.type = i.type==='password' ? 'text' : 'password'; },
   lockForgot: ()=>{ const p = $('lock-forgot'); if(p) p.classList.toggle('hidden'); },
   eraseDevice: ()=>eraseDeviceData(),
@@ -2047,6 +2047,7 @@ function showLockScreen(){
   $('app').classList.add('hidden'); $('welcome').classList.add('hidden');
   $('lock-screen').classList.remove('hidden');
   renderLockScreen();
+  _bioFailed = false;
   if(lockRec && loadBio() && bioApiPresent()){ if(document.visibilityState==='visible') setTimeout(doBioUnlock, 250); }
   else setTimeout(()=>{ const i = $('lock-input'); if(i) i.focus(); }, 100);
 }
@@ -2191,6 +2192,25 @@ async function changePassword(){
    server, so the assertion is verified on the device (challenge, origin, user-verified flag,
    signature against the stored public key). */
 let _bioPlatform = null, _bioInFlight = false;
+let _bioRun = 0, _bioAbort = null, _bioLastEnd = 0, _bioFailed = false;
+// Starts a fingerprint attempt. Returns its run number, or 0 when it shouldn't start.
+// manual (a tap): cancels any request still waiting (Android sometimes never answers one) and tries again.
+// automatic: only when nothing is running and the last attempt didn't just end (its own prompt hides the page).
+function bioBegin(manual){
+  if(_bioInFlight && !manual) return 0;
+  if(!manual && (_bioFailed || Date.now() - _bioLastEnd < 3000)) return 0;
+  if(_bioAbort){ try{ _bioAbort.abort(); }catch(e){} }
+  _bioInFlight = true;
+  const run = ++_bioRun;
+  setTimeout(()=>{ if(run===_bioRun && _bioInFlight && _bioAbort){ try{ _bioAbort.abort(); }catch(e){} } }, 70000); // watchdog
+  return run;
+}
+function bioEnd(run, failed){
+  if(run!==_bioRun) return false; // a newer attempt took over
+  _bioInFlight = false; _bioAbort = null; _bioLastEnd = Date.now();
+  if(failed!==undefined) _bioFailed = failed;
+  return true;
+}
 function loadBio(){ try{ const r = JSON.parse(localStorage.getItem(BIO_KEY)); return r && r.credId && r.prf && r.dekWrap && r.skWrap ? r : null; }catch(e){ return null; } }
 function bioApiPresent(){ return HAS_SUBTLE && !!window.isSecureContext && !!window.PublicKeyCredential && !!navigator.credentials; }
 async function checkBioPlatform(){
@@ -2224,7 +2244,9 @@ async function bioAssert(rec){
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const opts = { challenge, allowCredentials:[{ type:'public-key', id: unb64url(rec.credId) }], userVerification:'required', timeout:60000,
     extensions:{ prf:{ eval:{ first: unb64(rec.prfSalt) } } } };
-  const a = await navigator.credentials.get({ publicKey: opts });
+  const ac = typeof AbortController==='function' ? new AbortController() : null;
+  _bioAbort = ac;
+  const a = await navigator.credentials.get(ac ? { publicKey: opts, signal: ac.signal } : { publicKey: opts });
   const cd = JSON.parse(new TextDecoder().decode(a.response.clientDataJSON));
   if(cd.type !== 'webauthn.get' || cd.challenge !== b64url(challenge) || cd.origin !== location.origin) throw new Error('The fingerprint response didn’t match this request.');
   if(!(new Uint8Array(a.response.authenticatorData)[32] & 0x04)) throw new Error('Your phone didn’t confirm your fingerprint.');
@@ -2234,7 +2256,10 @@ async function bioAssert(rec){
   if(!out) throw new Error('Your phone didn’t return the unlock secret. Use your password.');
   return out;
 }
-function bioErrorText(e, fallback){ return e && e.name==='NotAllowedError' ? 'Fingerprint cancelled. Try again or use your password.' : (e && e.message) || fallback; }
+function bioErrorText(e, fallback){
+  if(e && (e.name==='NotAllowedError' || e.name==='AbortError')) return 'Fingerprint not recognised or cancelled. Tap “Try fingerprint again”, or use your password. If your phone says too many attempts, wait 30 seconds.';
+  return (e && e.message) || fallback;
+}
 // Creates the passkey and wraps both keys under its PRF secret. Returns {ok, message}.
 async function createPasskey(dek, skBytes){
   if(!bioApiPresent() || !_bioPlatform) return { ok:false, message:'Fingerprint unlock isn’t available on this device.' };
@@ -2293,18 +2318,22 @@ function disableBio(){
     <button class="opt" data-act="back"><i class="ti ti-x" aria-hidden="true"></i><div><div class="opt-t">Keep it</div></div></button>`,
     choices:[()=>{ try{ localStorage.removeItem(BIO_KEY); }catch(e){} pop(); renderSide(topPane()); toast('Fingerprint unlock is off'); }] });
 }
-async function doBioUnlock(){
+async function doBioUnlock(manual){
   const rec = loadBio();
-  if(!rec || !lockRec || _bioInFlight || !_locked) return;
-  const err = $('lock-error');
-  _bioInFlight = true; if(err) err.textContent = '';
+  if(!rec || !lockRec || !_locked) return;
+  const run = bioBegin(!!manual); if(!run) return;
+  const err = $('lock-error'); if(err) err.textContent = '';
   try{
     const out = await bioAssert(rec);
+    if(run!==_bioRun) return;
     await finishUnlock(await unwrapKey(await prfToKey(out), rec.dekWrap));
+    bioEnd(run, false);
   }catch(e){
+    if(!bioEnd(run, true)) return; // replaced by a newer tap: say nothing
     console.warn('Fingerprint unlock failed:', e);
-    if(err) err.textContent = bioErrorText(e, 'Fingerprint unlock failed. Use your password.');
-  }finally{ _bioInFlight = false; }
+    const el = $('lock-error'); if(el) el.textContent = bioErrorText(e, 'Fingerprint unlock failed. Use your password.');
+    const b = document.querySelector('#lock-screen [data-act="bioUnlock"]'); if(b) b.innerHTML = '<i class="ti ti-fingerprint" aria-hidden="true"></i>Try fingerprint again';
+  }finally{ if(run===_bioRun && _bioInFlight) bioEnd(run); }
 }
 
 /* ----- reveal prompt (fingerprint or password releases the vault's private key) ----- */
@@ -2321,7 +2350,7 @@ function openRevealPrompt(docId){
       <div class="field"><label for="reveal-pw">Password</label><input id="reveal-pw" type="password" autocomplete="current-password"></div>
       <div class="err" id="reveal-err" role="alert"></div>
       <div class="actions"><button class="btn" data-act="back">Cancel</button><button class="btn${bioOn?'':' primary'}" data-act="revealPwd" data-id="${esc(docId)}">Unlock</button></div>`,
-    onShow:()=>{ if(bioOn && document.visibilityState==='visible') revealWithBio(docId); else { const i = $('reveal-pw'); if(i) i.focus(); } },
+    onShow:()=>{ _bioFailed = false; if(bioOn && document.visibilityState==='visible') revealWithBio(docId); else { const i = $('reveal-pw'); if(i) i.focus(); } },
   });
 }
 let _revealBusy = false;
@@ -2339,19 +2368,22 @@ async function revealWithPassword(docId){
   }catch(e){ console.error(e); err.textContent = 'Couldn’t unlock sensitive info.'; }
   finally{ _revealBusy = false; }
 }
-async function revealWithBio(docId){
-  const rec = loadBio(); if(!rec || _bioInFlight || _revealBusy) return;
-  const err = $('reveal-err');
-  _bioInFlight = true; if(err) err.textContent = '';
+async function revealWithBio(docId, manual){
+  const rec = loadBio(); if(!rec || _revealBusy) return;
+  const run = bioBegin(!!manual); if(!run) return;
+  const err = $('reveal-err'); if(err) err.textContent = '';
   try{
     const out = await bioAssert(rec);
+    if(run!==_bioRun) return;
     const priv = await importVaultPriv(new Uint8Array(await decryptWith(await prfToKey(out), rec.skWrap)));
     if(topEntry() && topEntry().reveal) pop();
     await grantReveal(priv, docId);
   }catch(e){
+    if(!bioEnd(run, true)) return;
     console.warn('Fingerprint reveal failed:', e);
     const el = $('reveal-err'); if(el) el.textContent = bioErrorText(e, 'Fingerprint didn’t work. Use your password.');
-  }finally{ _bioInFlight = false; markActive(); }
+    const b = document.querySelector('#sheet [data-act="revealBio"]'); if(b) b.innerHTML = '<i class="ti ti-fingerprint" aria-hidden="true"></i>Try fingerprint again';
+  }finally{ if(run===_bioRun && _bioInFlight) bioEnd(run, false); markActive(); }
 }
 
 /* ----- auto-lock (as Mandoos): idle minutes, or at once on leaving. Per device. Default 5. ----- */
