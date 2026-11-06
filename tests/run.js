@@ -170,6 +170,59 @@ async function revealWithPassword(a, pw = PW){
 }
 
 async function main(){
+  /* ================= image locking by type ================= */
+  {
+    const idb = new IDBFactory();
+    const L = await open({ idb });
+    await setup(L);
+    record('LK1. New install: every built-in type locks its images', L.ev(`state.types.filter(t=>isBuiltinType(t.id)).every(t=>t.imagesSensitive)`) === true);
+    // simulate a phone from before this change: Vehicle registration unlocked, its images saved unlocked
+    L.ev(`delete state.imgLockV; typeById('vehicle-registration').imagesSensitive = false; typeById('insurance').imagesSensitive = false`);
+    const pic = (name, text) => new L.w.File([Buffer.from(text)], name, { type: 'image/jpeg' });
+    const addWithPhoto = async (type, ref, text) => {
+      await L.click('[data-act="openAdd"]'); await L.click('[data-act="addMethod"][data-m="photo"]');
+      L.w.__ocr = { text: '', words: [] };
+      await L.w.onFilesPicked([pic('p.jpg', text)]);
+      await L.waitFor(() => L.ev('draft && draft.scan && draft.scan.status') !== 'reading');
+      await L.click(`[data-act="draftType"][data-id="${type}"]`); await L.type('#f-ref', ref); await L.type('#f-expiry', '2027-04-19');
+      await L.click('[data-act="saveDoc"]'); await L.waitFor(() => !L.ev('_saving')); await sleep(20);
+      L.ev('draft = null; closeAllPanes()'); await sleep(10);
+    };
+    await addWithPhoto('vehicle-registration', '83639/H', 'CAR-CARD');
+    await addWithPhoto('insurance', 'POL-9', 'INS-CARD');
+    // an older version in History with an unlocked image too
+    await L.w.eval(`(async()=>{ const d = state.documents[0]; await writeFile('fold1', new TextEncoder().encode('OLD-CAR-CARD'), false);
+      d.history = [{ id:'h1', replacedAt:'2026-01-01T00:00:00Z', typeId:d.typeId, values:{ref:'OLD'}, sealed:{}, masks:{}, reminders:[],
+        attachments:[{ id:'fold1', kind:'image', mime:'image/jpeg', name:'old.jpg', label:'Front', size:12, sensitive:false, hasThumb:false }] }]; })()`);
+    // the insurance image: unlocked on purpose by the user
+    L.ev(`state.documents[1].attachments[0].userUnlocked = true; save()`);
+    const before = JSON.parse(L.ev(`JSON.stringify(state.documents.map(d=>d.attachments[0]))`));
+    record('LK2. (setup) images saved unlocked', before.every(a => !a.sensitive) && before.length === 2);
+    const saved = await L.snapshot();
+    const M = await open({ idb, storage: saved });
+    await unlock(M);
+    await M.waitFor(() => M.ev('!_imgLockP')); await sleep(30);
+    const recs = await M.w.eval(`idbReq('readonly', st=>st.getAll())`);
+    const car = JSON.parse(M.ev(`JSON.stringify(state.documents[0])`));
+    const ca = car.attachments[0], ha = car.history[0].attachments[0];
+    record('LK3. Upgrade: Vehicle registration, Insurance and Other become Locked', M.ev(`['vehicle-registration','insurance','other'].every(id=>typeById(id).imagesSensitive)`) === true);
+    record('LK4. Upgrade: the saved vehicle image is locked (vault, new id, no preview, old file gone)',
+      ca.sensitive && !ca.hasThumb && ca.id !== before[0].id && recs.find(r => r.id === ca.id).mode === 'vault' && !recs.some(r => r.id === before[0].id || r.id === before[0].id + ':t'));
+    record('LK5. Upgrade: its older version in History is locked too', ha.sensitive && recs.find(r => r.id === ha.id).mode === 'vault');
+    record('LK6. An image you unlocked on purpose stays unlocked', M.ev(`state.documents[1].attachments[0].sensitive`) === false && M.ev(`state.documents[1].attachments[0].id`) === before[1].id);
+    await M.click(M.$$('#doc-list .row').find(r => /83639/.test(r.textContent)));
+    record('LK7. Document page shows the vehicle image as a locked tile', M.$$('#side-pane .tile .ti-lock').length === 1);
+    record('LK8. Running it again changes nothing', (await M.w.eval('lockTypeImages()')) === 0);
+    // type editor: switching a type to Locked locks images already saved
+    M.ev(`typeById('other').imagesSensitive = false; delete state.documents[1].attachments[0].userUnlocked; state.documents[1].typeId = 'other'; save()`);
+    M.ev('closeAllPanes()'); await sleep(5);
+    await M.click('[data-act="openSettings"]'); await M.click('[data-act="openTypes"]');
+    await M.click('[data-act="editType"][data-id="other"]');
+    await M.click('[data-act="tImages"][data-v="1"]');
+    record('LK9. Type editor says saved images will be locked on save', /1 image already saved will be locked when you save/.test(M.text('#side-pane')));
+    await M.click('[data-act="saveType"]'); await M.waitFor(() => !M.ev('_typeSaving') && !M.ev('_imgLockP')); await sleep(30);
+    record('LK10. Saving the type locks it', M.ev(`state.documents[1].attachments[0].sensitive`) === true && /1 image locked/.test(M.text('#toast')), M.ev(`JSON.stringify(state.documents[1].attachments[0])`) + ' / ' + M.text('#toast'));
+  }
   /* ================= document title ================= */
   {
     const D = await open({ idb: new IDBFactory() });
@@ -468,6 +521,7 @@ async function main(){
     record('I13. Hiding closes the sensitive viewer and forgets the image URLs', !a.visible('#sheet') && a.ev('Object.keys(_urls).length') === 0);
     // add a non-sensitive document with a PDF via detail
     await a.click('[data-act="back"]');
+    a.ev(`typeById('insurance').imagesSensitive = false`); // these checks are about an unlocked type
     await addDoc(a, { type: 'insurance', fields: { ref: 'POL-1' } }); await a.type('#f-expiry', '2027-01-01'); await a.click('[data-act="saveDoc"]'); await a.waitFor(() => !a.ev('_saving')); await sleep(20);
     const insId = a.ev(`state.documents.find(d=>d.typeId==='insurance').id`);
     await a.click(`[data-act="addPages"]`);
@@ -488,7 +542,8 @@ async function main(){
     await a.click('[data-act="attMenu"]');
     await a.click('#sheet [data-act="sheetChoice"][data-i="1"]'); await sleep(60);
     recs = await dbRecords();
-    record('I18. Treat as sensitive re-seals it', a.ev(`docById(${JSON.stringify(insId)}).attachments[0].sensitive`) === true && recs.find(r => r.id === ins[0].id).mode === 'vault' && !a.visible('#sheet'));
+    const relocked = JSON.parse(a.ev(`JSON.stringify(docById(${JSON.stringify(insId)}).attachments[0])`));
+    record('I18. Treat as sensitive re-seals it under a new file id (so sync replaces it)', relocked.sensitive === true && relocked.id !== ins[0].id && recs.find(r => r.id === relocked.id).mode === 'vault' && !recs.some(r => r.id === ins[0].id) && !a.visible('#sheet'));
     await a.click('#side-pane .tile[data-act="openAtt"]');
     await a.type('#reveal-pw', PW); await a.click('[data-act="revealPwd"]'); await a.waitFor(() => !a.ev('_revealBusy')); await sleep(20);
     await a.click('#side-pane .tile[data-act="openAtt"]'); await sleep(40);
@@ -496,7 +551,7 @@ async function main(){
     await a.click('#sheet [data-act="sheetChoice"][data-i="2"]');
     await a.click('#sheet [data-act="sheetChoice"][data-i="0"]'); await sleep(30);
     recs = await dbRecords();
-    record('I19. Delete removes the file from storage', a.ev(`docById(${JSON.stringify(insId)}).attachments.length`) === 0 && !recs.some(r => r.id === ins[0].id));
+    record('I19. Delete removes the file from storage', a.ev(`docById(${JSON.stringify(insId)}).attachments.length`) === 0 && !recs.some(r => r.id === relocked.id));
     await a.click('[data-act="hideReveal"]');
     // big pdf refused
     await a.click('[data-act="addPages"]'); await a.click('[data-act="pickSource"][data-s="file"]');
@@ -739,7 +794,8 @@ async function main(){
     await setup(a);
     const img = (name, text) => new a.w.File([Buffer.from(text || ('IMG-' + name))], name, { type: 'image/jpeg' });
     const dbIds = async () => (await a.w.eval(`idbReq('readonly', st=>st.getAll())`)).map(r => r.id);
-    // an insurance policy with one image, added to the calendar
+    // an insurance policy with one image, added to the calendar (type set to Not locked: these checks are about History)
+    a.ev(`typeById('insurance').imagesSensitive = false`);
     await a.click('[data-act="openAdd"]'); await a.click('[data-act="addMethod"][data-m="photo"]');
     a.w.__ocr = { text: '', words: [] };
     await a.w.onFilesPicked([img('old-policy.jpg', 'OLD-POLICY')]);
@@ -892,6 +948,7 @@ async function main(){
     const stateFile = () => G.gists[gid].files['expiry-state.json'];
     const fileGists = () => Object.values(G.gists).filter(g => g.id !== gid);
     // A: a bank card, an insurance policy with a photo, a passport with a (sensitive) photo
+    A.ev(`typeById('insurance').imagesSensitive = false`); // one unlocked type, to sync a normal file
     await addDoc(A, { type: 'bank-card', fields: { cardName: 'Visa', ref: '4111 1111 1111 1111' }, month: '2028-01' });
     await A.click('#side-pane [data-act="back"]');
     await A.click('[data-act="openAdd"]'); await A.click('[data-act="addMethod"][data-m="photo"]');
@@ -1012,6 +1069,7 @@ async function main(){
     const lastBlob = (dev, type) => dev.w.__blobs.filter(b => !type || b.type === type).pop();
     await addDoc(A, { type: 'bank-card', fields: { cardName: 'Visa', ref: '4111 1111 1111 1111' }, month: '2028-01' });
     await A.click('#side-pane [data-act="back"]');
+    A.ev(`typeById('insurance').imagesSensitive = false`); // one unlocked type, to back up a normal file
     for (const [type, ref, exp, file, text] of [['passport', 'A7654321', '2030-01-01', 'pp.jpg', 'PASSPORT-IMG'], ['insurance', 'POL-1', '2027-06-30', 'pol.jpg', 'POLICY-IMG']]){
       await A.click('[data-act="openAdd"]'); await A.click('[data-act="addMethod"][data-m="photo"]');
       await A.w.onFilesPicked([img(A, file, text)]); await A.waitFor(() => A.ev('draft && draft.scan && draft.scan.status') !== 'reading');

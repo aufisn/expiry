@@ -12,7 +12,7 @@ details from a scan, and reminds you through your calendar before anything runs 
 Status: design agreed 2026-11-06. **M1–M9 built** (records, profiles, Fold layouts, app lock,
 fingerprint, sensitive vault, auto-lock, encrypted photos and PDFs, scanning and reading details,
 calendar reminders and Home summary, renew flow and History, encrypted GitHub sync, backups,
-type and field editor, optional document title, list sorted by expiry → type → title; 278 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
+type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type; 288 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
 
 M2 notes (decisions made while building):
 - The app lock is **required** in Expiry (optional in Mandoos): setup asks for a password (8+ characters)
@@ -102,7 +102,11 @@ M9 notes:
   a field made sensitive is sealed in every document and History; a field that stops being sensitive asks for
   the password and stores its values plainly. After a sync, values in fields made sensitive on another device
   are sealed here too.
-- Image protection applies to images added afterwards; already saved images keep theirs (remove and re-add to change).
+- Images on a Locked type are always locked, including ones already saved and those in History: Expiry
+  re-seals them on unlock, after a sync, after a restore and when a type is switched to Locked. Each gets a new
+  file id, so sync uploads the locked copy and deletes the old Gist. Exception: an image you set to "Stop
+  treating as sensitive" stays unlocked. Every built-in type, and every new type, starts Locked (M9.1; earlier
+  builds left Vehicle registration, Insurance and Other unlocked, and are moved over once).
 - Default reminders apply to new documents only.
 - Settings → Appearance: how dates are shown (14 Apr 2027, 14/04/2027, 04/14/2027, 2027-04-14). Calendar
   events always use the written-out form, so changing it doesn't make every event out of date.

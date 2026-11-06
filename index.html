@@ -417,23 +417,23 @@ const DEFAULT_TYPES = [
   {id:'bank-card', name:'Bank card', icon:'credit-card', imagesSensitive:true, titleKey:'cardName',
     reminders:[{amount:30,unit:'days'}],
     fields:[F('cardName','Card name','text',{placeholder:'Visa debit'}), F('ref','Card number','text',{onList:true, sensitive:true}), F('issuer','Bank'), EXPIRY('month'), NOTE]},
-  {id:'vehicle-registration', name:'Vehicle registration', icon:'car', imagesSensitive:false,
+  {id:'vehicle-registration', name:'Vehicle registration', icon:'car', imagesSensitive:true,
     reminders:[{amount:30,unit:'days'},{amount:7,unit:'days'}],
     fields:[F('ref','Plate number','text',{onList:true}), F('vehicle','Vehicle','text',{placeholder:'Toyota Prado'}), F('issuer','Licensing authority'), F('vin','Chassis / VIN'), EXPIRY(), NOTE]},
-  {id:'insurance', name:'Insurance', icon:'shield-check', imagesSensitive:false,
+  {id:'insurance', name:'Insurance', icon:'shield-check', imagesSensitive:true,
     reminders:[{amount:30,unit:'days'},{amount:7,unit:'days'}],
     fields:[F('ref','Policy no.','text',{onList:true}), F('issuer','Insurer'), F('cover','Cover','text',{placeholder:'Car, comprehensive'}), F('issueDate','Start date','date'), EXPIRY(), NOTE]},
   {id:'visa', name:'Visa / permit', icon:'plane', imagesSensitive:true,
     reminders:[{amount:3,unit:'months'},{amount:1,unit:'months'}],
     fields:[F('ref','Visa / permit no.','text',{onList:true}), F('issuer','Issuing country'), F('visaType','Type','text',{placeholder:'Work permit'}), F('issueDate','Issue date','date'), EXPIRY(), NOTE]},
-  {id:'other', name:'Other', icon:'file-text', imagesSensitive:false,
+  {id:'other', name:'Other', icon:'file-text', imagesSensitive:true,
     reminders:[{amount:30,unit:'days'}],
     fields:[F('ref','Reference no.','text',{onList:true}), F('issuer','Issuer'), F('issueDate','Issue date','date'), EXPIRY(), NOTE]},
 ];
 
 /* ---------- state ---------- */
 function emptyState(){
-  return { version:1, profiles:[], types:JSON.parse(JSON.stringify(DEFAULT_TYPES)), documents:[], settings:{ theme:'midnight' } };
+  return { version:1, profiles:[], types:JSON.parse(JSON.stringify(DEFAULT_TYPES)), documents:[], settings:{ theme:'midnight' }, imgLockV:1 };
 }
 let storageOK = true;
 function loadLockRecord(){
@@ -499,6 +499,8 @@ function normalizeLoadedState(){
   if(!Array.isArray(state.types)) state.types = base.types;
   // add any built-in type that is missing (new built-ins in later versions)
   for(const t of base.types){ if(!state.types.some(x=>x.id===t.id)) state.types.push(t); }
+  // M9.1: images of every built-in type are locked by default (earlier builds left three unlocked)
+  if(!state.imgLockV){ for(const t of state.types) if(isBuiltinType(t.id)) t.imagesSensitive = true; state.imgLockV = 1; }
   if(!state.settings) state.settings = {};
   if(!state.settings.theme) state.settings.theme = 'midnight';
   if(state.settings.revealMode!=='each') state.settings.revealMode = 'window';
@@ -1247,7 +1249,7 @@ function typeDraftFrom(t){
     hidden:!!c.hidden, reminders:(c.reminders||[]).map(r=>({amount:r.amount, unit:r.unit})), fields:c.fields.map(f=>Object.assign({}, f, {_old:f.key})), dirty:false, errors:{} };
 }
 function newTypeDraft(){
-  return { id:'c-'+uid(), isNew:true, name:'', icon:'file-text', imagesSensitive:false, titleKey:'', hidden:false,
+  return { id:'c-'+uid(), isNew:true, name:'', icon:'file-text', imagesSensitive:true, titleKey:'', hidden:false,
     reminders:[{amount:30, unit:'days'}],
     fields:[F('ref','Reference no.','text',{onList:true}), F('issuer','Issuer'), F('issueDate','Issue date','date'), EXPIRY(), NOTE], dirty:false, errors:{} };
 }
@@ -1311,7 +1313,7 @@ function renderTypeEditor(){
       <div class="muted" style="margin-top:6px">Used for new documents of this type. Documents you already have keep their own reminders.</div></div>
     <div class="field"><span class="label">Images</span>
       <div class="chips"><button class="chip${td.imagesSensitive?' on':''}" data-act="tImages" data-v="1"><i class="ti ti-lock" aria-hidden="true"></i>Locked</button><button class="chip${!td.imagesSensitive?' on':''}" data-act="tImages" data-v="0">Not locked</button></div>
-      <div class="muted" style="margin-top:6px">Locked images need your fingerprint or password to open, and show no preview until then. This applies to images you add from now on.${unlockedImgs?` ${unlockedImgs} image${unlockedImgs===1?'':'s'} already saved stay${unlockedImgs===1?'s':''} unlocked. To lock ${unlockedImgs===1?'it':'them'}, remove and add ${unlockedImgs===1?'it':'them'} again.`:''}</div></div>
+      <div class="muted" style="margin-top:6px">Locked images need your fingerprint or password to open, and show no preview until then. ${unlockedImgs?` The ${unlockedImgs} image${unlockedImgs===1?'':'s'} already saved will be locked when you save.`:''}</div></div>
     <div class="field"><span class="label">When adding a document</span>
       <div class="chips"><button class="chip${!td.hidden?' on':''}" data-act="tHidden" data-v="0">Show this type</button><button class="chip${td.hidden?' on':''}" data-act="tHidden" data-v="1">Hide it</button></div>
       <div class="muted" style="margin-top:6px">Hidden types don’t appear when you add a document. Documents you already have aren’t affected.</div></div>
@@ -1463,7 +1465,8 @@ async function saveTypeDraft(){
     save();
     tdraft = null;
     pop(); renderNav(true);
-    toast(td.isNew ? 'Type added. You can now pick it when you add a document.' : 'Type saved'+(updated.size ? ' · '+updated.size+' document'+(updated.size===1?'':'s')+' updated' : ''));
+    const lockedNow = await lockTypeImages().catch(()=>0);
+    toast(td.isNew ? 'Type added. You can now pick it when you add a document.' : 'Type saved'+(updated.size ? ' · '+updated.size+' document'+(updated.size===1?'':'s')+' updated' : '')+(lockedNow ? ' · '+lockedNow+' image'+(lockedNow===1?'':'s')+' locked' : ''));
   }catch(e){ console.error(e); toast('Couldn’t save the type. Nothing was changed.'); }
   finally{ _typeSaving = false; }
 }
@@ -1873,6 +1876,47 @@ async function sealPlainSensitive(){
   }
   return n;
 }
+// Locks (vault-seals) any saved image whose document type is Locked, in current and History versions.
+// Each gets a new file id, so sync uploads the locked copy and deletes the old Gist. Returns how many.
+let _imgLockP = null;
+function lockTypeImages(){
+  if(!_imgLockP) _imgLockP = (async()=>{
+    let n = 0; const touched = new Set();
+    try{
+      for(const d of state.documents.slice()){
+        for(const ver of [d].concat(d.history||[])){
+          if(!typeById(ver.typeId || d.typeId).imagesSensitive) continue;
+          for(const a of (ver.attachments||[]).slice()){
+            if(a.sensitive || a.userUnlocked) continue; // userUnlocked: “Stop treating as sensitive” on this image
+            if(_locked || !_sessionKey) return n;
+            let bytes; try{ bytes = await readFile(a.id); }catch(e){ continue; } // not on this phone yet
+            const id = 'f'+uid();
+            await writeFile(id, bytes, true);
+            const i = (ver.attachments||[]).indexOf(a);
+            if(i<0 || _locked){ idbDelete([id]).catch(()=>{}); continue; } // removed meanwhile
+            const na = Object.assign({}, a, { id, sensitive:true, hasThumb:false });
+            delete na.remote; delete na.syncSkipped; delete na.missing;
+            ver.attachments[i] = na;
+            deleteAttachmentFiles([a]);
+            touched.add(d); n++;
+          }
+        }
+      }
+    } finally {
+      // (the busy marker is cleared below, once the promise is stored)
+      if(touched.size && !_locked){
+        const now = new Date().toISOString();
+        touched.forEach(d=>{ d.updatedAt = now; });
+        save();
+        const top = typeof topPane==='function' && topPane();
+        if(top && top.screen==='detail') renderSide(top);
+      }
+    }
+    return n;
+  })();
+  const p = _imgLockP; p.finally(()=>{ if(_imgLockP===p) _imgLockP = null; }).catch(()=>{});
+  return _imgLockP;
+}
 async function makeLockRecord(pwd, dek, skPub, skBytes){
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const d = await derivePwd(pwd, salt, PBKDF2_ITER);
@@ -2045,6 +2089,7 @@ async function finishUnlock(key){
   const sealedNow = await sealPlainSensitive().catch(()=>0);
   if(reEncrypt || sealedNow) save();
   startApp();
+  await lockTypeImages().catch(e=>{ console.error(e); return 0; });
   maybeAutoSyncOnOpen();
   loadBackupDirName();
   return true;
@@ -2697,10 +2742,15 @@ async function setAttachmentSensitive(d, att, on){
     if(!on && att.kind==='image' && typeof createImageBitmap==='function'){
       try{ const r = await compressImage(new Blob([bytes], { type:att.mime })); thumb = r.thumb; }catch(e){}
     } else if(!on && att.kind==='pdf') thumb = await pdfThumb(bytes);
-    await writeFile(att.id, bytes, on);
-    if(on && att.hasThumb){ await idbDelete([att.id+':t']); att.hasThumb = false; }
-    if(!on && thumb){ await writeFile(att.id+':t', thumb, false); att.hasThumb = true; }
-    att.sensitive = on; dropUrl(att.id); save();
+    // a new file id, so the next sync uploads this copy and removes the old one from GitHub
+    const oldAtt = Object.assign({}, att), id = 'f'+uid();
+    await writeFile(id, bytes, on);
+    if(!on && thumb) await writeFile(id+':t', thumb, false);
+    Object.assign(att, { id, sensitive:on, hasThumb:!on && !!thumb, updatedAt:new Date().toISOString() });
+    delete att.remote; delete att.syncSkipped; delete att.missing;
+    if(on) delete att.userUnlocked; else att.userUnlocked = true;
+    deleteAttachmentFiles([oldAtt]);
+    d.updatedAt = new Date().toISOString(); save();
     toast(on ? 'Now treated as sensitive' : 'No longer sensitive');
     const v = topEntry(); if(v && v.viewer){ if(on && !isRevealedFor(d.id)) pop(); else renderSheet(true); }
     const p = topPane(); if(p) renderSide(p);
@@ -3891,6 +3941,7 @@ async function syncNow(opts){
     dedupeSelf(merged, remote);
     if(ui.profile!=='all' && !merged.profiles.some(p=>p.id===ui.profile)) ui.profile = 'all';
     applyMerged(merged);
+    await lockTypeImages();
     const files = await syncFiles(base.documents);
     if(!files || _locked || syncCfg!==cfg) return { ok:false };
     save();
@@ -4341,6 +4392,7 @@ async function applyBackup(b, mode){
   state.documents.forEach(d=>{ const c = keepCal.get(d.id); if(c) d.cal = c; else delete d.cal; });
   normalizeLoadedState();
   await sealPlainSensitive();
+  await lockTypeImages().catch(()=>0);
   const keep = new Set(allAtts(state.documents).map(a=>a.id));
   await deleteAttachmentFiles(oldAtts.filter(a=>!keep.has(a.id)));
   if(ui.profile!=='all' && !profileById(ui.profile)) ui.profile = 'all';
