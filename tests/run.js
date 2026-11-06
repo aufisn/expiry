@@ -172,6 +172,41 @@ async function revealWithPassword(a, pw = PW){
 }
 
 async function main(){
+  /* ================= calendar view ================= */
+  {
+    const C = await open({ idb: new IDBFactory() }); // today is 6 Nov 2026
+    await setup(C);
+    const pid = C.ev('state.profiles[0].id');
+    const doc = (id, type, title, exp, extra) => `Object.assign({id:'${id}', typeId:'${type}', ownerId:'${pid}', values:{title:'${title}', expiry:'${exp}'}, sealed:{}, masks:{}, reminders:[], attachments:[], history:[], state:'active'}, ${extra || '{}'})`;
+    C.ev(`state.documents = [${doc('c1','vehicle-registration','Jeep','2026-11-20')}, ${doc('c2','insurance','Jeep insurance','2026-11-20')},
+      ${doc('c3','passport','Passport','2026-11-03')}, ${doc('c4','visa','Old visa','2026-11-25', "{state:'archived'}")}, ${doc('c5','national-id','ID','2027-04-19')}]; save(); renderHome()`);
+    record('CV1. List view by default, with a calendar button', !C.$('#calendar') && !!C.$('[data-act="toggleView"] .ti-calendar-month'));
+    await C.click('[data-act="toggleView"]');
+    const days = () => C.$$('.cal-day.has').map(b => b.dataset.date + ':' + b.querySelector('.cal-count').textContent).join(',');
+    record('CV2. Calendar opens on the current month with the year', !!C.$('#calendar') && /November 2026/.test(C.text('.cal-title')) && C.$('#cal-month').value === '2026-11');
+    record('CV3. Expiry dates have the red mark and a count (archived left out, past dates kept)', days() === '2026-11-03:1,2026-11-20:2');
+    record('CV4. Today is marked', C.$('.cal-day.today') && C.$('.cal-day.today').textContent.trim() === '6');
+    record('CV5. Month summary', /3 documents expiring this month/.test(C.text('.cal-legend')));
+    await C.click('[data-act="calStep"][data-d="1"]');
+    record('CV6. Next month', /December 2026/.test(C.text('.cal-title')) && days() === '' && /Nothing expires this month/.test(C.text('.cal-legend')) && !!C.$('[data-act="calToday"]'));
+    const mi = C.$('#cal-month'); mi.value = '2027-04'; mi.dispatchEvent(new C.w.Event('input', { bubbles: true })); await sleep(5);
+    record('CV7. Choosing a month and year jumps there', /April 2027/.test(C.text('.cal-title')) && days() === '2027-04-19:1');
+    await C.click('[data-act="calToday"]');
+    record('CV8. “This month” comes back', /November 2026/.test(C.text('.cal-title')) && !C.$('[data-act="calToday"]'));
+    await C.click('[data-act="calDate"][data-date="2026-11-20"]');
+    const titles = () => C.$$('#doc-list .row-title').map(e => e.textContent).join('|');
+    record('CV9. Tapping a date shows the list with just that date’s documents', !C.$('#calendar') && ['Jeep|Jeep insurance', 'Jeep insurance|Jeep'].includes(titles()));
+    record('CV10. The date shows as a filter you can clear', /Expiring 20 Nov 2026/.test(C.text('.date-chip')));
+    await C.click('[data-act="clearDate"]');
+    record('CV11. Clearing it shows every document again', C.$$('#doc-list .row-title').length === 4 && !C.$('.date-chip'));
+    await C.click('[data-act="toggleView"]');
+    record('CV12. The calendar keeps the month you were on', /November 2026/.test(C.text('.cal-title')));
+    record('CV13. The view is remembered on this phone', C.w.localStorage.getItem('expiry_home_view') === 'calendar');
+    await C.click('[data-act="filterProfile"][data-id="all"]');
+    record('CV14. Weekday headings: 7, starting from the phone’s first day of the week', C.$$('.cal-dow').length === 7);
+    await C.click('[data-act="filterStatus"][data-st="expired"]');
+    record('CV15. Tapping a counter in the calendar goes to the list filtered by it', !C.$('#calendar') && titles() === 'Passport');
+  }
   /* ================= image locking by type ================= */
   {
     const idb = new IDBFactory();

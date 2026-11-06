@@ -81,6 +81,32 @@
 
   /* ---------- list ---------- */
   .sec-title{font-size:12px; color:var(--text-3); margin:14px 0 4px; text-transform:none; letter-spacing:.02em;}
+  /* calendar view */
+  .cal-head{display:flex; align-items:center; gap:4px; margin:6px 0 8px;}
+  .cal-title{flex:1; position:relative; display:flex; justify-content:center;}
+  .cal-title label{display:flex; align-items:center; gap:6px; font-size:18px; font-weight:600; padding:6px 10px; border-radius:8px; cursor:pointer;}
+  .cal-title label .ti{font-size:16px; color:var(--text-3);}
+  .cal-title input{position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer;}
+  .cal-today{font-size:13px; padding:4px 10px; border-radius:999px; border:1px solid var(--border-strong); background:none; color:var(--text);}
+  .cal-grid{display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px 6px; padding-top:6px;}
+  .cal-dow{font-size:11px; color:var(--text-3); text-align:center; padding:4px 0;}
+  .cal-grid{--cal-red:#FF4D4F;}
+  [data-theme="paper"] .cal-grid{--cal-red:#C62828;}
+  .cal-day{position:relative; aspect-ratio:1/1; min-height:40px; border-radius:10px; border:1px solid transparent; background:none; color:var(--text);
+    display:flex; align-items:center; justify-content:center; font-size:15px; font-family:inherit; padding:0;}
+  .cal-day.out{visibility:hidden;}
+  .cal-day.today{border-color:var(--accent); color:var(--accent); font-weight:600;}
+  .cal-day.has{border:3px solid var(--cal-red); background:var(--red-bg); color:var(--text); font-weight:700; cursor:pointer;}
+  .cal-day.has.past{opacity:.75;}
+  .cal-day.has.today{box-shadow:0 0 0 2px var(--accent);}
+  .cal-count{position:absolute; top:-7px; right:-7px; min-width:20px; height:20px; padding:0 5px; border-radius:999px; z-index:1;
+    background:var(--cal-red); color:#fff; font-size:12px; font-weight:700; line-height:20px; text-align:center; box-shadow:0 0 0 2px var(--bg);}
+  .cal-legend{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-3); margin:10px 2px 0;}
+  .cal-legend{--cal-red:#FF4D4F;} [data-theme="paper"] .cal-legend{--cal-red:#C62828;}
+  .cal-legend .sw{flex:none; width:14px; height:14px; border-radius:4px; border:3px solid var(--cal-red); background:var(--red-bg);}
+  .date-chip{display:inline-flex; align-items:center; gap:6px; margin:4px 0 2px; padding:6px 8px 6px 12px; border-radius:999px; border:2px solid var(--red);
+    background:var(--red-bg); color:var(--text); font-size:13px;}
+  .date-chip button{background:none; border:none; color:inherit; padding:0 2px; display:flex; cursor:pointer;}
   .row{display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; margin-bottom:6px;}
   .row.sel{border-color:var(--accent);}
   .row > .ti{color:var(--text-2); font-size:22px;}
@@ -601,7 +627,10 @@ function profileStats(pid){
 }
 
 /* ---------- UI state ---------- */
-const ui = { profile:'all', status:null, search:'', searchOpen:false, showArchived:false };
+const ui = { profile:'all', status:null, search:'', searchOpen:false, showArchived:false, view:homeViewSetting(), calMonth:null, date:null };
+// list or calendar, remembered on this device
+function homeViewSetting(){ try{ return localStorage.getItem('expiry_home_view')==='calendar' ? 'calendar' : 'list'; }catch(e){ return 'list'; } }
+function setHomeView(v){ ui.view = v==='calendar' ? 'calendar' : 'list'; try{ localStorage.setItem('expiry_home_view', ui.view); }catch(e){} }
 let draft = null;   // document being added/edited
 let pdraft = null;  // profile being added/edited
 // a pane with unsaved changes: leaving it asks first
@@ -766,6 +795,7 @@ function renderHome(){
   };
   const sortByExpiry = (a,b)=> compareDocs(a.d, b.d);
   let list = all.filter(x=>x.st!=='archived');
+  if(ui.date) list = list.filter(x=>x.d.values.expiry===ui.date);
   if(ui.status) list = list.filter(x=>x.st===ui.status);
   list.sort(sortByExpiry);
   const groups = [
@@ -789,7 +819,7 @@ function renderHome(){
       body += `<div class="sec-title">${title}</div>` + items.map(row).join('');
     }
     if(!list.length) body += `<div class="empty"><div>${ui.search?'No documents match “'+esc(ui.search)+'”.':'Nothing here for this filter.'}</div></div>`;
-    if(archived.length){
+    if(archived.length && !ui.date){
       body += `<button class="link-btn" data-act="toggleArchived">${ui.showArchived?'Hide':'Show'} archived (${archived.length})</button>`;
       if(ui.showArchived) body += `<div class="sec-title">Archived</div>` + archived.map(row).join('');
     }
@@ -798,6 +828,7 @@ function renderHome(){
   el.innerHTML = `
     <div class="topbar">
       <h1>Expiry</h1>
+      ${hasAny ? `<button class="icon-btn" data-act="toggleView" aria-label="${ui.view==='calendar'?'Show list':'Show calendar'}" title="${ui.view==='calendar'?'List view':'Calendar view'}"><i class="ti ti-${ui.view==='calendar'?'list':'calendar-month'}"></i></button>` : ''}
       <button class="icon-btn" data-act="toggleSearch" aria-label="Search"><i class="ti ti-search"></i></button>
       <button class="icon-btn" data-act="openProfiles" aria-label="Profiles"><i class="ti ti-users"></i></button>
       <button class="icon-btn" data-act="openSettings" aria-label="Settings"><i class="ti ti-settings"></i></button>
@@ -807,11 +838,53 @@ function renderHome(){
       <button class="chip${ui.profile==='all'?' on':''}" data-act="filterProfile" data-id="all">All</button>
       ${profiles.map(p=>`<button class="chip pc-${esc(p.color)}${ui.profile===p.id?' on':''}" data-act="filterProfile" data-id="${esc(p.id)}"><span class="dot"></span>${esc(p.name)}</button>`).join('')}
     </div>
-    ${hasAny ? summaryHTML() : ''}
+    ${hasAny && ui.view!=='calendar' && !ui.date ? summaryHTML() : ''}
     ${hasAny?`<div class="counters">${counter('expired','Expired')}${counter('soon','Expiring soon')}${counts.renewing?counter('renewing','Renewing'):''}${counter('valid','Valid')}</div>`:''}
-    <div id="doc-list">${body}</div>
+    ${hasAny && ui.view==='calendar' ? calendarHTML(all) : `${ui.date ? `<div class="date-chip"><i class="ti ti-calendar-event" aria-hidden="true"></i>Expiring ${esc(fmtDateLong(ui.date))}<button data-act="clearDate" aria-label="Show all dates"><i class="ti ti-x"></i></button></div>` : ''}<div id="doc-list">${body}</div>`}
     <div class="fab-wrap"><button class="fab" data-act="openAdd"><i class="ti ti-plus" aria-hidden="true"></i>Add</button></div>`;
   if(ui.searchOpen && ui._focusSearch){ ui._focusSearch = false; const s = $('search-input'); if(s){ s.focus(); } }
+}
+
+/* ---------- Home: month calendar of expiry dates ---------- */
+function firstDayOfWeek(){ // 0 = Sunday … 6 = Saturday, from the phone's region (Oman: Sunday)
+  try{ const l = new Intl.Locale(navigator.language||'en'); const w = l.getWeekInfo ? l.getWeekInfo() : l.weekInfo; if(w && w.firstDay) return w.firstDay % 7; }catch(e){}
+  return 0;
+}
+function calMonthNow(){ const t = todayDate(); return t.getFullYear()+'-'+pad(t.getMonth()+1); }
+function calendarHTML(all){
+  if(!ui.calMonth) ui.calMonth = calMonthNow();
+  const [y, m] = ui.calMonth.split('-').map(Number);
+  const today = todayDate(), todayISO = toISO(today);
+  const byDate = {};
+  all.filter(x=>x.st!=='archived' && x.d.values.expiry).forEach(x=>{ (byDate[x.d.values.expiry] = byDate[x.d.values.expiry] || []).push(x); });
+  const first = new Date(y, m-1, 1), days = new Date(y, m, 0).getDate();
+  const fdw = firstDayOfWeek(), lead = (first.getDay() - fdw + 7) % 7;
+  const dowFmt = new Intl.DateTimeFormat(undefined, { weekday:'narrow' });
+  const dows = Array.from({length:7}, (_,i)=>dowFmt.format(new Date(2024, 0, 7 + ((fdw + i) % 7)))); // 7 Jan 2024 was a Sunday
+  let cells = '';
+  for(let i=0;i<lead;i++) cells += `<div class="cal-day out" aria-hidden="true"></div>`;
+  let monthCount = 0;
+  for(let dnum=1; dnum<=days; dnum++){
+    const iso = y+'-'+pad(m)+'-'+pad(dnum), items = byDate[iso] || [], n = items.length;
+    monthCount += n;
+    const cls = ['cal-day', n?'has':'', iso===todayISO?'today':'', n && iso<todayISO?'past':''].filter(Boolean).join(' ');
+    cells += n
+      ? `<button class="${cls}" data-act="calDate" data-date="${iso}" aria-label="${esc(fmtDateLong(iso))}: ${n} document${n===1?'':'s'} expiring">${dnum}<span class="cal-count">${n}</span></button>`
+      : `<div class="${cls}">${dnum}</div>`;
+  }
+  const monthName = new Intl.DateTimeFormat(undefined, { month:'long', year:'numeric' }).format(first);
+  const atNow = ui.calMonth===calMonthNow();
+  return `<div class="cal" id="calendar">
+    <div class="cal-head">
+      <button class="icon-btn" data-act="calStep" data-d="-1" aria-label="Previous month"><i class="ti ti-chevron-left"></i></button>
+      <div class="cal-title"><label for="cal-month">${esc(monthName)}<i class="ti ti-chevron-down" aria-hidden="true"></i></label>
+        <input id="cal-month" type="month" value="${esc(ui.calMonth)}" data-bind="calMonth" aria-label="Choose month and year"></div>
+      <button class="icon-btn" data-act="calStep" data-d="1" aria-label="Next month"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="cal-grid">${dows.map(d=>`<div class="cal-dow">${esc(d)}</div>`).join('')}${cells}</div>
+    <div class="cal-legend"><span class="sw" aria-hidden="true"></span><span>${monthCount ? monthCount+' document'+(monthCount===1?'':'s')+' expiring this month. Tap a date to see them.' : 'Nothing expires this month.'}</span>
+      ${atNow ? '' : `<span style="flex:1"></span><button class="cal-today" data-act="calToday">This month</button>`}</div>
+  </div>`;
 }
 
 /* =====================================================================================
@@ -1564,7 +1637,12 @@ const ACT = {
   },
   toggleSearch: ()=>{ ui.searchOpen = !ui.searchOpen; if(!ui.searchOpen) ui.search=''; else ui._focusSearch = true; renderHome(); },
   filterProfile: el=>{ ui.profile = el.dataset.id; renderHome(); },
-  filterStatus: el=>{ ui.status = ui.status===el.dataset.st ? null : el.dataset.st; renderHome(); },
+  filterStatus: el=>{ ui.status = ui.status===el.dataset.st ? null : el.dataset.st; if(ui.view==='calendar'){ setHomeView('list'); ui.date = null; } renderHome(); },
+  toggleView: ()=>{ setHomeView(ui.view==='calendar' ? 'list' : 'calendar'); ui.date = null; if(ui.view==='calendar') ui.status = null; renderHome(); },
+  calStep: el=>{ const [y, m] = (ui.calMonth||calMonthNow()).split('-').map(Number); const d = new Date(y, m-1 + (+el.dataset.d), 1); ui.calMonth = d.getFullYear()+'-'+pad(d.getMonth()+1); renderHome(); },
+  calToday: ()=>{ ui.calMonth = calMonthNow(); renderHome(); },
+  calDate: el=>{ ui.date = el.dataset.date; ui.status = null; setHomeView('list'); renderHome(); const l = $('list-pane'); if(l) l.scrollTop = 0; },
+  clearDate: ()=>{ ui.date = null; renderHome(); },
   toggleArchived: ()=>{ ui.showArchived = !ui.showArchived; renderHome(); },
   openDoc: el=>openDocFromList(el.dataset.id),
   openAdd: ()=>openAddSheet(),
@@ -1754,6 +1832,7 @@ function onBind(e){
   if(!el) return;
   const b = el.dataset.bind;
   if(b==='search'){ ui.search = el.value; renderHomeKeepSearchFocus(); return; }
+  if(b==='calMonth'){ if(/^\d{4}-\d{2}$/.test(el.value)){ ui.calMonth = el.value; renderHome(); } return; }
   if(b==='value' && draft){
     const key = el.dataset.key;
     draft.values[key] = el.dataset.kind==='month' ? lastDayOfMonthISO(el.value) : el.value;
@@ -1786,6 +1865,8 @@ document.addEventListener('input', onBind);
 (()=>{ const r = document.getElementById('pick-restore'); if(r) r.addEventListener('change', ()=>{ markActive(); onRestorePicked(r.files && r.files[0]); }); })();
 ['pick-camera','pick-photo','pick-file'].forEach(id=>{ const el = document.getElementById(id); if(el) el.addEventListener('change', ()=>{ markActive(); onFilesPicked(el.files); }); });
 document.addEventListener('change', e=>{ if(e.target.tagName==='SELECT' || (e.target.dataset && e.target.dataset.bind==='remtime')) onBind(e); });
+// the month title opens the phone's month/year picker
+document.addEventListener('click', e=>{ const i = e.target.closest && e.target.closest('#cal-month'); if(i && i.showPicker){ try{ i.showPicker(); }catch(err){} } });
 document.addEventListener('keydown', e=>{
   const id = e.target && e.target.id;
   if(e.key==='Enter' && id==='welcome-name'){ e.preventDefault(); ACT.setupName(); }
