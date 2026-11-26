@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expiry Home designs</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css" rel="stylesheet">
+<style>
+  /* Expiry's own theme tokens (copied from index.html) */
+  :root{
+    --bg:#F5F1E8; --surface:#FFFFFF; --surface-2:#FBF8F1; --border:#DAD5C8; --border-strong:#C7C0AC;
+    --text:#2B2B28; --text-2:#6B6858; --text-3:#9C9887; --accent:#7A2E2E; --accent-bg:#F3E6E3; --on-accent:#FFFFFF;
+    --red:#A33333; --red-bg:#F7E6E6; --amber:#8A5A0B; --amber-bg:#F8EBD3; --green:#3B6D2E; --green-bg:#E4EFDC;
+    --blue:#33587A; --blue-bg:#E3ECF2; --grey:#6B6858; --grey-bg:#ECE8DE; --radius:12px;
+    --page:#E9E4D8;
+  }
+  html[data-theme="midnight"]{
+    --bg:#12161F; --surface:#1B212D; --surface-2:#212838; --border:#2A3140; --border-strong:#3A4356;
+    --text:#E9E4D8; --text-2:#A8A290; --text-3:#6E7280; --accent:#C9A227; --accent-bg:#332B18; --on-accent:#12161F;
+    --red:#E08A7C; --red-bg:#3A2420; --amber:#E0B054; --amber-bg:#3A2E18; --green:#7CC495; --green-bg:#1A3024;
+    --blue:#7FA3D6; --blue-bg:#1B2740; --grey:#A8A290; --grey-bg:#262C38;
+    --page:#0B0E14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--page); color:var(--text); font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.45;}
+  .wrap{max-width:1240px; margin:0 auto; padding:20px 16px 60px;}
+  h1{font-size:22px; font-weight:600; margin:0 0 4px}
+  .intro{color:var(--text-2); margin:0 0 14px; font-size:14px; max-width:760px}
+  .bar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 18px; position:sticky; top:0; background:var(--page); padding:8px 0; z-index:5}
+  .tab{border:1px solid var(--border-strong); background:none; color:var(--text); border-radius:999px; padding:7px 14px; font:inherit; font-size:14px; cursor:pointer}
+  .tab.on{background:var(--accent); color:var(--on-accent); border-color:var(--accent)}
+  .spacer{flex:1}
+  section.design{margin:0 0 44px}
+  section.design h2{font-size:19px; font-weight:600; margin:0 0 2px}
+  .what{color:var(--text-2); font-size:14px; margin:0 0 6px; max-width:860px}
+  .pros{display:flex; flex-wrap:wrap; gap:6px 18px; font-size:13px; color:var(--text-2); margin:0 0 14px}
+  .pros b{color:var(--text); font-weight:500}
+  .frames{display:flex; gap:22px; align-items:flex-start; overflow-x:auto; padding-bottom:8px}
+  .fcap{font-size:12px; color:var(--text-3); margin:0 0 6px}
+  .device{border:8px solid #05070B; border-radius:28px; background:var(--bg); overflow:hidden; flex:none; position:relative}
+  html:not([data-theme="midnight"]) .device{border-color:#3A3A36}
+  .fold{width:375px; height:780px}
+  .open{width:820px; height:700px; border-radius:22px}
+  .screen{height:100%; overflow:hidden; display:flex; flex-direction:column}
+  .split{display:grid; grid-template-columns:380px 1fr; height:100%}
+  .split > .pane{border-right:1px solid var(--border); overflow:hidden; display:flex; flex-direction:column}
+  .split > .pane:last-child{border-right:none; background:var(--surface-2)}
+  .body{padding:0 14px 14px; overflow:hidden; flex:1; position:relative}
+  /* app pieces */
+  .topbar{display:flex; align-items:center; gap:4px; padding:12px 10px 8px 14px}
+  .topbar h3{flex:1; margin:0; font-size:20px; font-weight:600; letter-spacing:.01em}
+  .ib{width:36px; height:36px; display:flex; align-items:center; justify-content:center; color:var(--text-2); font-size:20px}
+  .sync{display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:4px 10px; border-radius:999px; background:var(--green-bg); color:var(--green); margin-right:2px; white-space:nowrap}
+  .sync.amber{background:var(--amber-bg); color:var(--amber)} .sync.red{background:var(--red-bg); color:var(--red)} .sync.blue{background:var(--blue-bg); color:var(--blue)}
+  .chips{display:flex; gap:6px; margin:2px 0 10px; overflow:hidden}
+  .chip{border:1px solid var(--border-strong); border-radius:999px; padding:5px 12px; font-size:13px; white-space:nowrap; color:var(--text-2)}
+  .chip.on{background:var(--accent-bg); border-color:var(--accent); color:var(--accent)}
+  .slim{display:flex; gap:6px; margin:0 0 10px}
+  .slim span{flex:1; text-align:center; border-radius:10px; padding:6px 4px; font-size:12px; border:1px solid var(--border)}
+  .slim b{display:block; font-size:17px; font-weight:600}
+  .c-red{color:var(--red)} .c-amber{color:var(--amber)} .c-green{color:var(--green)} .c-blue{color:var(--blue)}
+  .strip{display:flex; align-items:center; gap:8px; border-radius:10px; padding:9px 11px; font-size:13px; margin:0 0 10px; border:1px solid}
+  .strip.amber{background:var(--amber-bg); color:var(--amber); border-color:color-mix(in srgb, var(--amber) 40%, transparent)}
+  .strip.red{background:var(--red-bg); color:var(--red); border-color:color-mix(in srgb, var(--red) 40%, transparent)}
+  .strip .ti{font-size:18px} .strip span{flex:1; color:var(--text)} .strip u{font-weight:500; text-decoration:none}
+  .sec{font-size:12px; color:var(--text-3); margin:12px 0 2px}
+  .row{display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--border)}
+  .row .ico{width:34px; height:34px; border-radius:10px; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--text-2); font-size:18px; flex:none}
+  .row .t{flex:1; min-width:0}
+  .row .t .a{font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .row .t .b{font-size:12px; color:var(--text-2)}
+  .badge{font-size:12px; padding:3px 9px; border-radius:999px; white-space:nowrap; text-align:center}
+  .b-red{background:var(--red-bg); color:var(--red)} .b-amber{background:var(--amber-bg); color:var(--amber)} .b-green{background:var(--green-bg); color:var(--green)} .b-blue{background:var(--blue-bg); color:var(--blue)}
+  .sel{background:var(--surface-2); margin:0 -14px; padding-left:14px; padding-right:14px; box-shadow:inset 3px 0 0 var(--accent)}
+  .fab{position:absolute; right:16px; bottom:16px; width:54px; height:54px; border-radius:16px; background:var(--accent); color:var(--on-accent); display:flex; align-items:center; justify-content:center; font-size:26px}
+  .note{position:absolute; background:var(--accent); color:var(--on-accent); font-size:11px; font-weight:600; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:3}
+  /* detail */
+  .dhead{padding:16px 20px 6px}
+  .dhead .k{font-size:12px; color:var(--text-3)}
+  .dhead h4{margin:2px 0 6px; font-size:21px; font-weight:600}
+  .prompt{margin:0 20px 12px; padding:10px 12px; border-radius:10px; background:var(--red-bg); color:var(--text); font-size:14px; display:flex; gap:8px; align-items:center}
+  .prompt .ti{color:var(--red); font-size:18px}
+  .actions{display:flex; gap:8px; padding:0 20px 14px}
+  .btn{border:1px solid var(--border-strong); border-radius:10px; padding:10px 14px; font-size:14px; display:inline-flex; gap:6px; align-items:center; color:var(--text); background:var(--surface)}
+  .btn.p{background:var(--accent); color:var(--on-accent); border-color:var(--accent); font-weight:500}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); margin:0 20px 12px; padding:6px 14px}
+  .kv{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:14px}
+  .kv:last-child{border-bottom:none} .kv .k{color:var(--text-2)}
+  .statusrow{display:flex; align-items:center; gap:8px; font-size:14px; padding:9px 0; border-bottom:1px solid var(--border)}
+  .statusrow:last-child{border-bottom:none} .statusrow span{flex:1}
+  .mini{font-size:13px; border:1px solid var(--border-strong); border-radius:8px; padding:6px 10px; min-height:36px; display:inline-flex; align-items:center}
+  .tiles{display:flex; gap:8px; margin:0 20px 12px}
+  .tile{width:84px; height:64px; border-radius:10px; background:var(--surface); border:1px solid var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:11px; color:var(--text-2); gap:2px}
+  .tile .ti{font-size:18px}
+  /* timeline */
+  .seg{display:flex; border:1px solid var(--border-strong); border-radius:10px; overflow:hidden; margin:0 0 10px; font-size:13px}
+  .seg span{flex:1; text-align:center; padding:6px} .seg .on{background:var(--accent-bg); color:var(--accent); font-weight:500}
+  .mh{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-3); margin:12px 0 0; text-transform:uppercase; letter-spacing:.05em}
+  .mh::after{content:''; flex:1; height:1px; background:var(--border)}
+  .tl{display:flex; gap:10px; padding:8px 0}
+  .tl .d{width:38px; text-align:center; flex:none}
+  .tl .d b{display:block; font-size:17px; font-weight:600; line-height:1.1} .tl .d small{font-size:11px; color:var(--text-3)}
+  .tl .x{flex:1; border-left:3px solid; padding-left:10px; min-width:0}
+  .tl .x .a{font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis} .tl .x .b{font-size:12px; color:var(--text-2)}
+  .todo{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:4px 12px; margin:0 0 6px}
+  .todo .row:last-child{border-bottom:none}
+  /* grid */
+  .mgrid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin:0 20px; font-size:13px; text-align:center}
+  .mgrid div{aspect-ratio:1; display:flex; align-items:center; justify-content:center; border-radius:8px; position:relative}
+  .mgrid .h{aspect-ratio:auto; color:var(--text-3); font-size:11px}
+  .mgrid .ev::after{content:''; position:absolute; bottom:4px; width:7px; height:7px; border-radius:50%; background:var(--dot)}
+  /* people */
+  .pc{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; margin:0 0 10px}
+  .pc .top{display:flex; align-items:center; gap:10px}
+  .av{width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; flex:none}
+  .pc .nm{font-weight:600; font-size:16px} .pc .sub{font-size:12px; color:var(--text-2)}
+  .pc .bar3{display:flex; gap:6px; margin-top:10px}
+  .pc .bar3 span{font-size:12px; padding:3px 9px; border-radius:999px}
+  .pc .next{margin-top:8px; font-size:13px; display:flex; gap:6px; align-items:center; color:var(--text-2)}
+  .pc.sel{box-shadow:0 0 0 2px var(--accent); margin:0 0 10px; padding:12px}
+  .legend{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 30px; font-size:13px; color:var(--text-2); align-items:center}
+  .compare{width:100%; border-collapse:collapse; font-size:14px; margin:6px 0 0}
+  .compare th,.compare td{border-bottom:1px solid var(--border); text-align:left; padding:8px 10px; vertical-align:top}
+  .compare th{color:var(--text-2); font-weight:500}
+  .hidden{display:none}
+  @media (max-width:640px){ .wrap{padding:12px 10px 50px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Expiry · Home redesign: three options</h1>
+  <p class="intro">Real-size mock-ups in Expiry's own colours. Each option shows the folded cover screen (375 px) and the unfolded inner screen (820 px). Scroll sideways inside a row to see the unfolded screen on a phone. All three include the design review's common fixes: a sync status pill instead of a Sync button, real dates on rows, a calendar warning that only clears when updated, and Renew as the main button on expired documents. Numbered dots point to what's new.</p>
+
+  <div class="bar">
+    <button class="tab on" data-show="all">All three</button>
+    <button class="tab" data-show="A">A · Polish</button>
+    <button class="tab" data-show="B">B · Timeline</button>
+    <button class="tab" data-show="C">C · Family first</button>
+    <button class="tab" data-show="AC">A + C combined</button>
+    <span class="spacer"></span>
+    <button class="tab" id="theme"><i class="ti ti-sun"></i> Paper theme</button>
+  </div>
+
+  <div class="sec" style="margin:0 0 4px">The sync status pill (used in all three, replaces pressing “Sync now”)</div>
+  <div class="legend">
+    <span class="sync"><i class="ti ti-cloud-check"></i>Synced</span>
+    <span class="sync blue"><i class="ti ti-refresh"></i>Syncing…</span>
+    <span class="sync amber"><i class="ti ti-cloud-upload"></i>Saved · syncing soon</span>
+    <span class="sync red"><i class="ti ti-cloud-off"></i>Not synced · Retry</span>
+    <span style="font-size:12px;color:var(--text-3)">Folded shows the icon and one word; tapping it opens the details.</span>
+  </div>
+
+  <!-- ===================== A ===================== -->
+  <section class="design" data-d="A">
+    <h2>A · Polish</h2>
+    <p class="what">Keeps today's layout, which you already know, and fixes what the review found: no duplicate “Needs attention” card, slimmer counters, dates under every badge, and a better detail screen.</p>
+    <div class="pros"><span><b>Best for:</b> least change, quickest to build</span><span><b>Effort:</b> small</span><span><b>Trade-off:</b> the unfolded right pane is still empty until you pick a document</span></div>
+    <div class="frames">
+      <div><div class="fcap">Folded · Home</div>
+        <div class="device fold"><div class="screen">
+          <div class="topbar" style="position:relative"><h3>Expiry</h3><span class="note" style="left:118px;top:4px">1</span><span class="sync"><i class="ti ti-cloud-check"></i>Synced</span><span class="ib"><i class="ti ti-calendar-month"></i></span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+          <div class="body">
+            <div class="chips"><span class="chip on">All</span><span class="chip">Salim</span><span class="chip">Sara</span><span class="chip">Adam</span></div>
+            <span class="note" style="left:-6px;top:44px">2</span>
+            <div class="slim"><span><b class="c-red">1</b>Expired</span><span><b class="c-amber">2</b>Soon</span><span><b class="c-blue">1</b>Renewing</span><span><b class="c-green">9</b>Valid</span></div>
+            <span class="note" style="left:-6px;top:104px">3</span>
+            <div class="strip amber"><i class="ti ti-calendar-exclamation"></i><span>Calendar out of date for 3 documents</span><u>Update</u></div>
+            <div class="sec">Needs action</div>
+            <span class="note" style="right:-4px;top:176px">4</span>
+            <div class="row"><span class="ico"><i class="ti ti-file-certificate"></i></span><div class="t"><div class="a">Visa</div><div class="b">Sara · expired 9 Nov 2026</div></div><span class="badge b-red">17 days ago</span></div>
+            <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Sedan registration</div><div class="b">Salim · 12 Feb 2027</div></div><span class="badge b-amber">2 months</span></div>
+            <div class="row"><span class="ico"><i class="ti ti-id"></i></span><div class="t"><div class="a">Diplomatic passport</div><div class="b">Adam · 26 Jun 2027</div></div><span class="badge b-amber">7 months</span></div>
+            <div class="sec">In progress</div>
+            <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Second car registration</div><div class="b">Salim · renewal expected 11 Nov</div></div><span class="badge b-blue">Renewing</span></div>
+            <div class="sec">Valid</div>
+            <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">SUV registration</div><div class="b">Salim · 19 Apr 2027</div></div><span class="badge b-green">5 months</span></div>
+            <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Pickup registration</div><div class="b">Salim · 8 Sep 2027</div></div><span class="badge b-green">10 months</span></div>
+            <div class="fab"><i class="ti ti-plus"></i></div>
+          </div>
+        </div></div>
+      </div>
+      <div><div class="fcap">Unfolded · Home with a document open</div>
+        <div class="device open"><div class="split">
+          <div class="pane">
+            <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced 2 min ago</span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+            <div class="body">
+              <div class="chips"><span class="chip on">All</span><span class="chip">Salim</span><span class="chip">Sara</span><span class="chip">Adam</span></div>
+              <div class="slim"><span><b class="c-red">1</b>Expired</span><span><b class="c-amber">2</b>Soon</span><span><b class="c-blue">1</b>Renewing</span><span><b class="c-green">9</b>Valid</span></div>
+              <div class="strip amber"><i class="ti ti-calendar-exclamation"></i><span>Calendar out of date for 3</span><u>Update</u></div>
+              <div class="sec">Needs action</div>
+              <div class="row sel"><span class="ico"><i class="ti ti-file-certificate"></i></span><div class="t"><div class="a">Visa</div><div class="b">Sara · expired 9 Nov 2026</div></div><span class="badge b-red">17 days ago</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Sedan registration</div><div class="b">Salim · 12 Feb 2027</div></div><span class="badge b-amber">2 months</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-id"></i></span><div class="t"><div class="a">Diplomatic passport</div><div class="b">Adam · 26 Jun 2027</div></div><span class="badge b-amber">7 months</span></div>
+              <div class="sec">In progress</div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Second car registration</div><div class="b">Salim · expected 11 Nov</div></div><span class="badge b-blue">Renewing</span></div>
+              <div class="fab"><i class="ti ti-plus"></i></div>
+            </div>
+          </div>
+          <div class="pane" style="position:relative">
+            <span class="note" style="left:8px;top:96px">5</span><span class="note" style="left:8px;top:150px">6</span><span class="note" style="left:8px;top:330px">7</span>
+            <div class="dhead"><div class="k">Sara · Visa / permit</div><h4>Visa</h4><span class="badge b-red">Expired 17 days ago</span></div>
+            <div class="prompt"><i class="ti ti-alert-circle"></i>Expired on 9 Nov 2026. Renew it, or archive it if it's no longer needed.</div>
+            <div class="actions"><span class="btn p"><i class="ti ti-refresh"></i>Renew</span><span class="btn"><i class="ti ti-pencil"></i>Edit</span><span class="btn"><i class="ti ti-dots"></i></span></div>
+            <div class="card"><div class="kv"><span class="k">Number</span><span>•••• 4021 <i class="ti ti-lock"></i></span></div><div class="kv"><span class="k">Issued by</span><span>Oman</span></div><div class="kv"><span class="k">Expiry date</span><span>9 Nov 2026</span></div></div>
+            <div class="card">
+              <div class="statusrow"><i class="ti ti-cloud-check c-green"></i><span>Saved and synced</span></div>
+              <div class="statusrow"><i class="ti ti-calendar-exclamation c-amber"></i><span>Calendar: changed since you added it</span><span class="mini">Update</span></div>
+            </div>
+            <div class="tiles"><div class="tile"><i class="ti ti-lock"></i>Front</div><div class="tile"><i class="ti ti-lock"></i>Back</div></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <ol class="what" style="padding-left:18px">
+      <li>Sync status pill replaces the Sync button; it turns amber or red only when something needs you.</li>
+      <li>Counters on one slim line, so the list starts higher on the cover screen.</li>
+      <li>Calendar warning on its own strip; it can't be hidden with the X, it goes away once updated.</li>
+      <li>Every row shows the real date and the person under the name; time left uses whole words.</li>
+      <li>Plain prompt on expired or expiring documents.</li>
+      <li>Renew becomes the main button when a document is expired or expiring.</li>
+      <li>Status rows for sync and calendar on the document, with full-size buttons.</li>
+    </ol>
+  </section>
+
+  <!-- ===================== B ===================== -->
+  <section class="design" data-d="B">
+    <h2>B · Timeline</h2>
+    <p class="what">Home answers “what do I need to do, and what's coming?”. A short To-do card at the top, then a 12-month timeline of every reminder and expiry, month by month. A switch at the top shows the full list by status when you want it.</p>
+    <div class="pros"><span><b>Best for:</b> planning ahead; replaces the mostly-empty month grid</span><span><b>Effort:</b> medium</span><span><b>Trade-off:</b> documents more than 12 months away are only in “All documents”</span></div>
+    <div class="frames">
+      <div><div class="fcap">Folded · Home</div>
+        <div class="device fold"><div class="screen">
+          <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced</span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+          <div class="body">
+            <div class="chips"><span class="chip on">All</span><span class="chip">Salim</span><span class="chip">Sara</span><span class="chip">Adam</span></div>
+            <span class="note" style="left:-6px;top:44px">1</span>
+            <div class="seg"><span class="on">Timeline</span><span>All documents</span></div>
+            <span class="note" style="left:-6px;top:90px">2</span>
+            <div class="todo">
+              <div class="row"><span class="ico" style="color:var(--red)"><i class="ti ti-alert-circle"></i></span><div class="t"><div class="a">Renew Sara's visa</div><div class="b">Expired 9 Nov · 17 days ago</div></div><i class="ti ti-chevron-right" style="color:var(--text-3)"></i></div>
+              <div class="row"><span class="ico" style="color:var(--blue)"><i class="ti ti-hourglass"></i></span><div class="t"><div class="a">Second car renewal is overdue</div><div class="b">Expected 11 Nov · has it arrived?</div></div><i class="ti ti-chevron-right" style="color:var(--text-3)"></i></div>
+              <div class="row"><span class="ico" style="color:var(--amber)"><i class="ti ti-calendar-exclamation"></i></span><div class="t"><div class="a">Update your calendar</div><div class="b">3 documents changed</div></div><i class="ti ti-chevron-right" style="color:var(--text-3)"></i></div>
+            </div>
+            <span class="note" style="left:-6px;top:300px">3</span>
+            <div class="mh">December 2026</div>
+            <div class="tl"><div class="d"><b>26</b><small>Sat</small></div><div class="x" style="border-color:var(--amber)"><div class="a">Adam's diplomatic passport</div><div class="b">Reminder · expires 26 Jun 2027 (6 months)</div></div></div>
+            <div class="mh">January 2027</div>
+            <div class="tl"><div class="d"><b>13</b><small>Wed</small></div><div class="x" style="border-color:var(--amber)"><div class="a">Sedan registration</div><div class="b">Reminder · expires 12 Feb (30 days)</div></div></div>
+            <div class="mh">February 2027</div>
+            <div class="tl"><div class="d"><b>12</b><small>Fri</small></div><div class="x" style="border-color:var(--red)"><div class="a">Sedan registration</div><div class="b">Expires</div></div></div>
+            <div class="mh">March 2027</div>
+            <div class="tl"><div class="d"><b>20</b><small>Sat</small></div><div class="x" style="border-color:var(--green)"><div class="a">SUV registration</div><div class="b">Reminder · expires 19 Apr</div></div></div>
+            <div class="fab"><i class="ti ti-plus"></i></div>
+          </div>
+        </div></div>
+      </div>
+      <div><div class="fcap">Unfolded · timeline with an item open</div>
+        <div class="device open"><div class="split">
+          <div class="pane">
+            <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced 2 min ago</span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+            <div class="body">
+              <div class="seg"><span class="on">Timeline</span><span>All documents</span></div>
+              <div class="todo">
+                <div class="row"><span class="ico" style="color:var(--red)"><i class="ti ti-alert-circle"></i></span><div class="t"><div class="a">Renew Sara's visa</div><div class="b">Expired 17 days ago</div></div></div>
+                <div class="row"><span class="ico" style="color:var(--blue)"><i class="ti ti-hourglass"></i></span><div class="t"><div class="a">Second car renewal is overdue</div><div class="b">Expected 11 Nov</div></div></div>
+              </div>
+              <div class="mh">December 2026</div>
+              <div class="tl sel" style="margin:0 -14px;padding:8px 14px"><div class="d"><b>26</b><small>Sat</small></div><div class="x" style="border-color:var(--amber)"><div class="a">Adam's diplomatic passport</div><div class="b">Reminder · 6 months before</div></div></div>
+              <div class="mh">January 2027</div>
+              <div class="tl"><div class="d"><b>13</b><small>Wed</small></div><div class="x" style="border-color:var(--amber)"><div class="a">Sedan registration</div><div class="b">Reminder · 30 days before</div></div></div>
+              <div class="mh">February 2027</div>
+              <div class="tl"><div class="d"><b>12</b><small>Fri</small></div><div class="x" style="border-color:var(--red)"><div class="a">Sedan registration</div><div class="b">Expires</div></div></div>
+            </div>
+          </div>
+          <div class="pane" style="position:relative">
+            <span class="note" style="left:8px;top:16px">4</span>
+            <div class="dhead"><div class="k">Adam · Passport</div><h4>Diplomatic passport</h4><span class="badge b-amber">Expires in 7 months</span></div>
+            <div class="actions"><span class="btn p"><i class="ti ti-refresh"></i>Renew</span><span class="btn"><i class="ti ti-pencil"></i>Edit</span></div>
+            <div class="card">
+              <div class="sec" style="margin:6px 0">Reminders for this document</div>
+              <div class="statusrow"><i class="ti ti-circle-check c-green"></i><span>26 Sep 2026 · 9 months before</span><span style="font-size:12px;color:var(--text-3)">passed</span></div>
+              <div class="statusrow"><i class="ti ti-bell c-amber"></i><span><b>26 Dec 2026 · 6 months before</b></span><span style="font-size:12px;color:var(--amber)">next</span></div>
+              <div class="statusrow"><i class="ti ti-flag c-red"></i><span>26 Jun 2027 · expires</span></div>
+            </div>
+            <div class="sec" style="margin:4px 20px 6px">December 2026</div>
+            <div class="mgrid">
+              <div class="h">S</div><div class="h">M</div><div class="h">T</div><div class="h">W</div><div class="h">T</div><div class="h">F</div><div class="h">S</div>
+              <div></div><div></div><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div>
+              <div>6</div><div>7</div><div>8</div><div>9</div><div>10</div><div>11</div><div>12</div>
+              <div>13</div><div>14</div><div>15</div><div>16</div><div>17</div><div>18</div><div>19</div>
+              <div>20</div><div>21</div><div>22</div><div>23</div><div>24</div><div>25</div><div class="ev" style="--dot:var(--amber);background:var(--amber-bg);font-weight:600">26</div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <ol class="what" style="padding-left:18px">
+      <li>Switch between the timeline and the full list by status (today's Home).</li>
+      <li>To-do card: only things that need you now (renew, overdue renewal, calendar), each one tap away.</li>
+      <li>12-month timeline: every reminder and expiry, with a colour bar and words for the status.</li>
+      <li>Unfolded: the document with its own reminder history and the month it falls in.</li>
+    </ol>
+  </section>
+
+  <!-- ===================== C ===================== -->
+  <section class="design" data-d="C">
+    <h2>C · Family first</h2>
+    <p class="what">Home shows one card per person: how many documents they have, how many need action, and their next expiry. Tap a person for their list. Unfolded, the family stays on the left and that person's documents fill the right.</p>
+    <div class="pros"><span><b>Best for:</b> managing several people at a glance; fills the empty unfolded pane</span><span><b>Effort:</b> medium</span><span><b>Trade-off:</b> one more tap to reach a document when folded</span></div>
+    <div class="frames">
+      <div><div class="fcap">Folded · Home</div>
+        <div class="device fold"><div class="screen">
+          <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced</span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+          <div class="body">
+            <span class="note" style="left:-6px;top:0">1</span>
+            <div class="strip red"><i class="ti ti-alert-circle"></i><span>2 need action · 1 renewal overdue</span><u>See</u></div>
+            <div class="strip amber"><i class="ti ti-calendar-exclamation"></i><span>Calendar out of date for 3</span><u>Update</u></div>
+            <span class="note" style="left:-6px;top:112px">2</span>
+            <div class="pc">
+              <div class="top"><span class="av" style="background:var(--blue-bg);color:var(--blue)">SA</span><div style="flex:1"><div class="nm">Salim</div><div class="sub">You · 7 documents</div></div><i class="ti ti-chevron-right" style="color:var(--text-3)"></i></div>
+              <div class="bar3"><span class="b-amber">1 soon</span><span class="b-blue">1 renewing</span><span class="b-green">5 valid</span></div>
+              <div class="next"><i class="ti ti-calendar-event"></i>Next: Sedan registration · 12 Feb 2027</div>
+            </div>
+            <div class="pc">
+              <div class="top"><span class="av" style="background:var(--green-bg);color:var(--green)">SR</span><div style="flex:1"><div class="nm">Sara</div><div class="sub">Spouse · 3 documents</div></div><i class="ti ti-chevron-right" style="color:var(--text-3)"></i></div>
+              <div class="bar3"><span class="b-red">1 expired</span><span class="b-green">2 valid</span></div>
+              <div class="next" style="color:var(--red)"><i class="ti ti-alert-circle"></i>Visa expired 9 Nov 2026</div>
+            </div>
+            <div class="pc">
+              <div class="top"><span class="av" style="background:var(--amber-bg);color:var(--amber)">AD</span><div style="flex:1"><div class="nm">Adam</div><div class="sub">Son · 2 documents</div></div><i class="ti ti-chevron-right" style="color:var(--text-3)"></i></div>
+              <div class="bar3"><span class="b-amber">1 soon</span><span class="b-green">1 valid</span></div>
+              <div class="next"><i class="ti ti-calendar-event"></i>Next: diplomatic passport · 26 Jun 2027</div>
+            </div>
+            <div style="font-size:13px;color:var(--text-2);text-align:center;margin-top:4px"><i class="ti ti-list"></i> All 13 documents</div>
+            <div class="fab"><i class="ti ti-plus"></i></div>
+          </div>
+        </div></div>
+      </div>
+      <div><div class="fcap">Unfolded · family on the left, one person's documents on the right</div>
+        <div class="device open"><div class="split">
+          <div class="pane">
+            <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced 2 min ago</span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+            <div class="body">
+              <div class="strip red"><i class="ti ti-alert-circle"></i><span>2 need action · 1 renewal overdue</span><u>See</u></div>
+              <div class="pc">
+                <div class="top"><span class="av" style="background:var(--blue-bg);color:var(--blue)">SA</span><div style="flex:1"><div class="nm">Salim</div><div class="sub">You · 7 documents</div></div></div>
+                <div class="bar3"><span class="b-amber">1 soon</span><span class="b-blue">1 renewing</span><span class="b-green">5 valid</span></div>
+              </div>
+              <div class="pc sel">
+                <div class="top"><span class="av" style="background:var(--green-bg);color:var(--green)">SR</span><div style="flex:1"><div class="nm">Sara</div><div class="sub">Spouse · 3 documents</div></div></div>
+                <div class="bar3"><span class="b-red">1 expired</span><span class="b-green">2 valid</span></div>
+              </div>
+              <div class="pc">
+                <div class="top"><span class="av" style="background:var(--amber-bg);color:var(--amber)">AD</span><div style="flex:1"><div class="nm">Adam</div><div class="sub">Son · 2 documents</div></div></div>
+                <div class="bar3"><span class="b-amber">1 soon</span><span class="b-green">1 valid</span></div>
+              </div>
+              <div class="fab"><i class="ti ti-plus"></i></div>
+            </div>
+          </div>
+          <div class="pane" style="position:relative">
+            <span class="note" style="left:8px;top:16px">3</span>
+            <div class="dhead"><div class="k">Spouse</div><h4>Sara's documents</h4></div>
+            <div style="padding:0 20px">
+              <div class="sec">Needs action</div>
+              <div class="row"><span class="ico"><i class="ti ti-file-certificate"></i></span><div class="t"><div class="a">Visa</div><div class="b">Expired 9 Nov 2026</div></div><span class="badge b-red">17 days ago</span><span class="btn p" style="padding:6px 10px;font-size:13px">Renew</span></div>
+              <div class="sec">Valid</div>
+              <div class="row"><span class="ico"><i class="ti ti-id"></i></span><div class="t"><div class="a">Normal passport</div><div class="b">29 Jan 2032 · first reminder 29 Apr 2031</div></div><span class="badge b-green">5 years</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-id"></i></span><div class="t"><div class="a">Diplomatic passport</div><div class="b">26 Jun 2032 · first reminder 26 Sep 2031</div></div><span class="badge b-green">5 years</span></div>
+              <span class="note" style="position:relative;display:inline-flex;margin:14px 6px 0 0">4</span>
+              <div class="card" style="margin:6px 0 0">
+                <div class="statusrow"><i class="ti ti-brand-telegram c-blue"></i><span>Reminders also go to Sara (later, with Telegram)</span></div>
+                <div class="statusrow"><i class="ti ti-calendar-check c-green"></i><span>All 3 in your calendar</span></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <ol class="what" style="padding-left:18px">
+      <li>One line says what needs action across the family; tap “See” for the list.</li>
+      <li>A card per person: counts by status, and the next thing for them.</li>
+      <li>Unfolded: pick a person on the left, their documents fill the right, with Renew right on the row.</li>
+      <li>Room for per-person reminder settings, ready for Telegram family reminders (PRD E1).</li>
+    </ol>
+  </section>
+
+
+  <!-- ===================== A + C ===================== -->
+  <section class="design" data-d="AC">
+    <h2>A + C combined · A's list folded, C's family view unfolded</h2>
+    <p class="what">Folded, Home is design A's list: everything in one place, with the sync pill, slim counters and dates. Unfolded, the list stays on the left and the right pane, instead of “Select a document”, shows the family overview from C. Tap a document and its details replace the overview; close it (or tap the family icon) and the overview comes back.</p>
+    <div class="pros"><span><b>Best for:</b> the familiar list on the cover screen, and the wasted unfolded space put to work</span><span><b>Effort:</b> small to medium</span><span><b>Trade-off:</b> the family view is only on the inner screen (folded, the person chips filter the list instead)</span></div>
+    <div class="frames">
+      <div><div class="fcap">Folded · Home (same as A)</div>
+        <div class="device fold"><div class="screen">
+          <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced</span><span class="ib"><i class="ti ti-calendar-month"></i></span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+          <div class="body">
+            <div class="chips"><span class="chip on">All</span><span class="chip">Salim</span><span class="chip">Sara</span><span class="chip">Adam</span></div>
+            <div class="slim"><span><b class="c-red">1</b>Expired</span><span><b class="c-amber">2</b>Soon</span><span><b class="c-blue">1</b>Renewing</span><span><b class="c-green">9</b>Valid</span></div>
+            <div class="strip amber"><i class="ti ti-calendar-exclamation"></i><span>Calendar out of date for 3 documents</span><u>Update</u></div>
+              <div class="sec">Needs action</div>
+              <div class="row"><span class="ico"><i class="ti ti-file-certificate"></i></span><div class="t"><div class="a">Visa</div><div class="b">Sara · expired 9 Nov 2026</div></div><span class="badge b-red">17 days ago</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Sedan registration</div><div class="b">Salim · 12 Feb 2027</div></div><span class="badge b-amber">2 months</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-id"></i></span><div class="t"><div class="a">Diplomatic passport</div><div class="b">Adam · 26 Jun 2027</div></div><span class="badge b-amber">7 months</span></div>
+              <div class="sec">In progress</div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Second car registration</div><div class="b">Salim · expected 11 Nov</div></div><span class="badge b-blue">Renewing</span></div>
+              <div class="sec">Valid</div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">SUV registration</div><div class="b">Salim · 19 Apr 2027</div></div><span class="badge b-green">5 months</span></div>
+            <div class="fab"><i class="ti ti-plus"></i></div>
+          </div>
+        </div></div>
+      </div>
+      <div><div class="fcap">Unfolded · nothing selected: family overview on the right</div>
+        <div class="device open"><div class="split">
+          <div class="pane">
+            <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced 2 min ago</span><span class="ib"><i class="ti ti-calendar-month"></i></span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+            <div class="body">
+              <div class="chips"><span class="chip on">All</span><span class="chip">Salim</span><span class="chip">Sara</span><span class="chip">Adam</span></div>
+              <div class="slim"><span><b class="c-red">1</b>Expired</span><span><b class="c-amber">2</b>Soon</span><span><b class="c-blue">1</b>Renewing</span><span><b class="c-green">9</b>Valid</span></div>
+              <div class="strip amber"><i class="ti ti-calendar-exclamation"></i><span>Calendar out of date for 3</span><u>Update</u></div>
+              <div class="sec">Needs action</div>
+              <div class="row"><span class="ico"><i class="ti ti-file-certificate"></i></span><div class="t"><div class="a">Visa</div><div class="b">Sara · expired 9 Nov 2026</div></div><span class="badge b-red">17 days ago</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Sedan registration</div><div class="b">Salim · 12 Feb 2027</div></div><span class="badge b-amber">2 months</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-id"></i></span><div class="t"><div class="a">Diplomatic passport</div><div class="b">Adam · 26 Jun 2027</div></div><span class="badge b-amber">7 months</span></div>
+              <div class="sec">In progress</div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Second car registration</div><div class="b">Salim · expected 11 Nov</div></div><span class="badge b-blue">Renewing</span></div>
+              <div class="sec">Valid</div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">SUV registration</div><div class="b">Salim · 19 Apr 2027</div></div><span class="badge b-green">5 months</span></div>
+              <div class="fab"><i class="ti ti-plus"></i></div>
+            </div>
+          </div>
+          <div class="pane" style="position:relative">
+            <span class="note" style="left:8px;top:16px">1</span>
+            <div class="dhead"><div class="k">Overview</div><h4>Your family</h4></div>
+            <div style="padding:0 20px">
+              <div class="strip red" style="margin-bottom:12px"><i class="ti ti-alert-circle"></i><span>2 need action · 1 renewal overdue</span><u>See</u></div>
+              <div class="pc">
+                <div class="top"><span class="av" style="background:var(--blue-bg);color:var(--blue)">SA</span><div style="flex:1"><div class="nm">Salim</div><div class="sub">You · 7 documents</div></div><span class="mini">Show list</span></div>
+                <div class="bar3"><span class="b-amber">1 soon</span><span class="b-blue">1 renewing</span><span class="b-green">5 valid</span></div>
+                <div class="next"><i class="ti ti-calendar-event"></i>Next: Sedan registration · 12 Feb 2027</div>
+              </div>
+              <div class="pc">
+                <div class="top"><span class="av" style="background:var(--green-bg);color:var(--green)">SR</span><div style="flex:1"><div class="nm">Sara</div><div class="sub">Spouse · 3 documents</div></div><span class="mini">Show list</span></div>
+                <div class="bar3"><span class="b-red">1 expired</span><span class="b-green">2 valid</span></div>
+                <div class="next" style="color:var(--red)"><i class="ti ti-alert-circle"></i>Visa expired 9 Nov 2026 · <u>Renew</u></div>
+              </div>
+              <div class="pc">
+                <div class="top"><span class="av" style="background:var(--amber-bg);color:var(--amber)">AD</span><div style="flex:1"><div class="nm">Adam</div><div class="sub">Son · 2 documents</div></div><span class="mini">Show list</span></div>
+                <div class="bar3"><span class="b-amber">1 soon</span><span class="b-green">1 valid</span></div>
+                <div class="next"><i class="ti ti-calendar-event"></i>Next: diplomatic passport · 26 Jun 2027</div>
+              </div>
+              <span class="note" style="position:relative;display:inline-flex;margin:2px 6px 0 0">2</span>
+              <div class="card" style="margin:6px 0 0">
+                <div class="statusrow"><i class="ti ti-cloud-check c-green"></i><span>All changes saved and synced</span></div>
+                <div class="statusrow"><i class="ti ti-calendar-exclamation c-amber"></i><span>Calendar: 3 documents changed</span><span class="mini">Update</span></div>
+              </div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+      <div><div class="fcap">Unfolded · a document tapped: its details replace the overview</div>
+        <div class="device open"><div class="split">
+          <div class="pane">
+            <div class="topbar"><h3>Expiry</h3><span class="sync"><i class="ti ti-cloud-check"></i>Synced 2 min ago</span><span class="ib"><i class="ti ti-calendar-month"></i></span><span class="ib"><i class="ti ti-search"></i></span><span class="ib"><i class="ti ti-settings"></i></span></div>
+            <div class="body">
+              <div class="chips"><span class="chip on">All</span><span class="chip">Salim</span><span class="chip">Sara</span><span class="chip">Adam</span></div>
+              <div class="slim"><span><b class="c-red">1</b>Expired</span><span><b class="c-amber">2</b>Soon</span><span><b class="c-blue">1</b>Renewing</span><span><b class="c-green">9</b>Valid</span></div>
+              <div class="strip amber"><i class="ti ti-calendar-exclamation"></i><span>Calendar out of date for 3</span><u>Update</u></div>
+              <div class="sec">Needs action</div>
+              <div class="row sel"><span class="ico"><i class="ti ti-file-certificate"></i></span><div class="t"><div class="a">Visa</div><div class="b">Sara · expired 9 Nov 2026</div></div><span class="badge b-red">17 days ago</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Sedan registration</div><div class="b">Salim · 12 Feb 2027</div></div><span class="badge b-amber">2 months</span></div>
+              <div class="row"><span class="ico"><i class="ti ti-id"></i></span><div class="t"><div class="a">Diplomatic passport</div><div class="b">Adam · 26 Jun 2027</div></div><span class="badge b-amber">7 months</span></div>
+              <div class="sec">In progress</div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">Second car registration</div><div class="b">Salim · expected 11 Nov</div></div><span class="badge b-blue">Renewing</span></div>
+              <div class="sec">Valid</div>
+              <div class="row"><span class="ico"><i class="ti ti-car"></i></span><div class="t"><div class="a">SUV registration</div><div class="b">Salim · 19 Apr 2027</div></div><span class="badge b-green">5 months</span></div>
+              <div class="fab"><i class="ti ti-plus"></i></div>
+            </div>
+          </div>
+          <div class="pane" style="position:relative">
+            <span class="note" style="left:8px;top:16px">3</span>
+            <div class="topbar" style="padding:10px 12px 0"><span class="ib"><i class="ti ti-users"></i></span><span style="font-size:13px;color:var(--text-2);flex:1">Back to family</span><span class="ib"><i class="ti ti-x"></i></span></div>
+            <div class="dhead" style="padding-top:4px"><div class="k">Sara · Visa / permit</div><h4>Visa</h4><span class="badge b-red">Expired 17 days ago</span></div>
+            <div class="prompt"><i class="ti ti-alert-circle"></i>Expired on 9 Nov 2026. Renew it, or archive it if it's no longer needed.</div>
+            <div class="actions"><span class="btn p"><i class="ti ti-refresh"></i>Renew</span><span class="btn"><i class="ti ti-pencil"></i>Edit</span><span class="btn"><i class="ti ti-dots"></i></span></div>
+            <div class="card"><div class="kv"><span class="k">Number</span><span>•••• 4021 <i class="ti ti-lock"></i></span></div><div class="kv"><span class="k">Issued by</span><span>Oman</span></div><div class="kv"><span class="k">Expiry date</span><span>9 Nov 2026</span></div></div>
+            <div class="card">
+              <div class="statusrow"><i class="ti ti-cloud-check c-green"></i><span>Saved and synced</span></div>
+              <div class="statusrow"><i class="ti ti-calendar-exclamation c-amber"></i><span>Calendar: changed since you added it</span><span class="mini">Update</span></div>
+            </div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+    <ol class="what" style="padding-left:18px">
+      <li>Unfolded with nothing selected: one card per person (counts, next expiry). “Show list” filters the left list to that person, the same as tapping their chip.</li>
+      <li>Sync and calendar status for the whole family, in one place.</li>
+      <li>A tapped document replaces the overview; “Back to family” or ✕ returns to it. Renew is the main button when a document is expired or expiring.</li>
+    </ol>
+  </section>
+
+  <section class="design" data-d="all">
+    <h2>Side by side</h2>
+    <table class="compare">
+      <tr><th></th><th>A · Polish</th><th>B · Timeline</th><th>C · Family first</th></tr>
+      <tr><td>Home answers</td><td>Which documents need action?</td><td>What's coming, month by month?</td><td>How is each person doing?</td></tr>
+      <tr><td>Folded</td><td>Familiar list, starts higher</td><td>To-do card + timeline</td><td>Person cards, one more tap to a document</td></tr>
+      <tr><td>Unfolded</td><td>List + document (right pane empty until a pick)</td><td>Timeline + document with its reminder history</td><td>Family + that person's documents</td></tr>
+      <tr><td>Effort</td><td>Small</td><td>Medium</td><td>Medium</td></tr>
+      <tr><td>A + C combined</td><td colspan="3">A's list on both screens; C's family overview fills the unfolded right pane until a document is opened. Effort: small to medium.</td></tr>
+      <tr><td>Can combine</td><td colspan="3">Yes: e.g. A's list folded with C's family overview in the unfolded right pane, or B's timeline as the calendar view inside A.</td></tr>
+    </table>
+  </section>
+</div>
+<script>
+  document.querySelectorAll('[data-show]').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('[data-show]').forEach(x=>x.classList.toggle('on', x===b));
+    const v = b.dataset.show;
+    document.querySelectorAll('section.design').forEach(s=>s.classList.toggle('hidden', v!=='all' && s.dataset.d!==v));
+    window.scrollTo({top:0});
+  }));
+  // open on the option named in the address (#A, #B, #C, #AC); the combined option by default
+  { const want = (location.hash||'#AC').slice(1); const b = document.querySelector('[data-show="'+want+'"]'); if(b) b.click(); }
+  const tb = document.getElementById('theme');
+  tb.addEventListener('click',()=>{
+    const h = document.documentElement, dark = h.dataset.theme==='midnight';
+    h.dataset.theme = dark ? 'paper' : 'midnight';
+    tb.innerHTML = dark ? '<i class="ti ti-moon"></i> Midnight theme' : '<i class="ti ti-sun"></i> Paper theme';
+  });
+</script>
+</body>
+</html>

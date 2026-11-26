@@ -9,10 +9,12 @@ details from a scan, and reminds you through your calendar before anything runs 
 - **Reference app:** Mandoos (`../Mandoos`, see `GITHUB-SYNC-AND-PWA-GUIDE.md`). Security, encryption,
   Gist sync and Fold layout follow Mandoos unless this document says otherwise.
 
+Next enhancements (phase 2) are specified in `docs/PRD.md` (E1: Telegram reminders through a Cloudflare Worker).
+
 Status: design agreed 2026-11-06. **M1–M9 built** (records, profiles, Fold layouts, app lock,
 fingerprint, sensitive vault, auto-lock, encrypted photos and PDFs, scanning and reading details,
 calendar reminders and Home summary, renew flow and History, encrypted GitHub sync, backups,
-type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you, Start fresh for Google Calendar, search keeps the keyboard open; 330 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
+type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you, Start fresh for Google Calendar, search keeps the keyboard open, fully automatic sync, three Home designs (List · Timeline · Family) chosen in Settings; 362 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
 
 M2 notes (decisions made while building):
 - The app lock is **required** in Expiry (optional in Mandoos): setup asks for a password (8+ characters)
@@ -426,3 +428,27 @@ keys are erased ("Forgot password").
   - Send a test notification.
   - Reminder time (existing), "Needs attention" on Home (existing), Add all reminders to calendar (existing).
 - Folded and unfolded use the same settings card; the Home card sits above the counters.
+
+---
+
+## 8. M10: automatic sync and Home designs (built 2026-11-26)
+
+**Automatic sync** (no need to press "Sync now"): uploads about 4 s after a change, straight away when the
+app goes to the background, on unlock/return when changes are waiting, retries after 30 s / 2 min / 10 min,
+and again when the phone is back online. Locking waits (up to 15 s, screen hidden) for the last upload.
+A change made during an upload stays pending and gets its own upload.
+
+**Home designs** — Settings → Appearance → Home design (default List); mock-ups in `ux/home-alternatives.html`.
+- Shared: sync status pill in the top bar (Synced · Syncing · Saving · Not synced, tap to retry); rows show
+  person and date, time left in words; calendar strip (not dismissable) replaces the calendar lines in the
+  summary; summary now only holds what the list doesn't show (overdue renewals in List, sync, backup);
+  slimmer counters; expired/expiring documents get a plain prompt and Renew as the main button, with the
+  buttons at the top; sync status line on the document.
+- Unfolded: the empty right pane is a family overview (person cards, status); in the Family design it lists
+  what needs action.
+- List: as before, plus the month calendar button.
+- Timeline: Timeline | All documents switch; to-do card (expired, overdue renewals); next 12 months of
+  reminders, expiries and follow-ups by month.
+- Family: a card per person (counts, next item); a person's documents open as their own screen (`person`
+  pane; documents opened from it stack on top so Back returns to the person); "All N documents" shows the list.
+- Not yet checked on the Fold.
