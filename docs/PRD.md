@@ -101,6 +101,8 @@ replacing the app's encryption or Gist sync.
 **Reminder list and privacy**
 - FR-1.1 The list holds only: reminder id, date, kind, opaque document id, owner profile id, label, and
   the time of the last change. Never reference numbers, issuers, notes, images or field values.
+  Labels are built only from the **type name, the person's name and the expiry date**, never from the
+  optional free-text document title (a user could type a number into it). Acceptance test AT-7 covers it.
 - FR-1.2 Label detail is a setting: **Type and person** ("Sara's passport expires 29 Jan 2032", default)
   or **Generic** ("A document expires on 29 Jan 2032").
 - FR-1.3 The app sends the whole list each time (replace, not merge), with a version number; the Worker
@@ -144,10 +146,8 @@ replacing the app's encryption or Gist sync.
 - FR-5.6 Telegram bot chats aren't end-to-end encrypted: this is why labels never carry more than type,
   person and date.
 - FR-5.7 (security review 2026-11-26) Sending labels the Worker and Telegram can read is an exception to
-  "only encrypted data leaves the phone". Before building E1, Salim approves it in his own words and it is
-  recorded in DESIGN.md §5; otherwise the **Generic** label becomes the default. The Worker access code is
-  stored on the phone only inside the encrypted state.
-  **Approved by Salim, 2026-11-27:** “Telegram should show what is expiring and when. It should not show
+  "only encrypted data leaves the phone". The Worker access code is stored on the phone only inside the
+  encrypted state. **Approved by Salim, 2026-11-27:** “Telegram should show what is expiring and when. It should not show
   document numbers or images.” So the default label is **Type and person** with the expiry date; reference
   numbers, issuers, notes and images never leave the phone unencrypted.
 
@@ -183,7 +183,7 @@ Claude never handles the token, chat ID or access code.
 - AT-4 A reminder in 2031 is on the Worker and is sent on its date (tested with a fake clock).
 - AT-5 Archive a document → its items disappear from the Worker after the next sync.
 - AT-6 A message from another Telegram account gets no reply; a webhook call without the secret header gets 401.
-- AT-7 No reference number, issuer, note or image appears in any message, log or Worker table (automated scan).
+- AT-7 No reference number, issuer, note, image or free-text title appears in any message, log or Worker table (automated scan, including a document whose title contains digits).
 - AT-8 Wrong access code 10 times → the API is locked for 15 minutes.
 - AT-9 Two devices: the older list version never overwrites the newer one.
 - AT-10 Telegram down for a run → messages are sent on the next run, none lost.

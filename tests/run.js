@@ -219,7 +219,9 @@ async function main(){
     // a deleted person's page says so (and adding doesn't pick them)
     H.ev(`state.profiles.find(p=>p.id==='ah').deleted = true; push({kind:'pane', screen:'person', id:'ah'});`); await sleep(5);
     record(`HD14 (${tag}). A deleted person's page says they no longer exist`, /no longer exists/.test(H.text('#side-pane')) && H.ev('defaultOwnerId()') !== 'ah');
-    H.ev(`state.profiles.find(p=>p.id==='ah').deleted = false;`);
+    H.ev(`ui.profile = 'ah'`);
+    record(`HD14b (${tag}). Filtered to a person who was deleted (e.g. on another device): Add doesn't pick them`, H.ev('defaultOwnerId()') !== 'ah');
+    H.ev(`ui.profile = 'all'; state.profiles.find(p=>p.id==='ah').deleted = false;`);
     H.ev('closeAllPanes()'); await sleep(5);
     await H.click('#list-pane button.link-btn[data-act="familyList"]');
     record(`HD13 (${tag}). “All documents” shows the list, with a way back to the family`, !!H.$('#doc-list') && !!H.$('[data-act="familyHome"]'));

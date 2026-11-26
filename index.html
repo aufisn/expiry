@@ -737,7 +737,11 @@ function renderNav(force){
     if(cur!==revealScope) hideReveal();
   }
   document.body.classList.toggle('pane-open', !!pane);
-  if(force || pane!==lastSideEntry){ renderSide(pane); lastSideEntry = pane; }
+  if(force || pane!==lastSideEntry){
+    if(pane) renderSide(pane);
+    else { const sp = $('side-pane'); if(sp) sp.innerHTML = ''; } // Home draws the overview when it can be seen
+    lastSideEntry = pane;
+  }
   // Check details for a scan takes the whole inner screen when unfolded: image left, fields right
   document.body.classList.toggle('wide-editor', !!(pane && pane.screen==='edit' && wideEditorOn()));
   renderSheet();
@@ -879,6 +883,7 @@ function updateSyncBits(){
 function updateSyncPill(){ updateSyncBits(); }
 // Calendar out of date: its own strip, not hidden by the summary's X; it goes away once you update.
 let _calMemo = null; // set for the length of one Home redraw
+let _lastDrawDay = null; // the day Home was last drawn (a new day changes statuses)
 function calCounts(){ return _calMemo || { n: calNeedsUpdate().length, u: calUnconfirmed().length }; }
 function calendarStripHTML(){
   const { n:calN, u:calU } = calCounts();
@@ -965,10 +970,10 @@ function timelineHTML(all, sel){
 function overviewPaneHTML(){
   const all = state.documents.map(d=>({ d, st:docStatus(d, todayDate()) }));
   if(!state.documents.length) return `<div class="empty" style="padding-top:30vh"><i class="ti ti-file-search" aria-hidden="true"></i><h3>Select a document</h3><div>Its details, reminders and scans show here.</div></div>`;
-  const s = syncState();
+  const s = syncState(), calN = calCounts().n;
   const status = `<div class="sec-title">Status</div><div class="card">
       ${s ? syncLineHTML('ov-sync-line', 'All changes saved and synced') : `<div class="cal-line"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>GitHub sync is off</span><button class="mini-btn" data-act="openSettings">Settings</button></div>`}
-      ${calCounts().n ? `<div class="cal-line warn"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar: ${calCounts().n} document${calCounts().n===1?'':'s'} changed</span><button class="mini-btn" data-act="calAll">Update</button></div>` : `<div class="cal-line ok"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Calendar up to date</span></div>`}</div>`;
+      ${calN ? `<div class="cal-line warn"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar: ${calN} document${calN===1?'':'s'} changed</span><button class="mini-btn" data-act="calAll">Update</button></div>` : `<div class="cal-line ok"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Calendar up to date</span></div>`}</div>`;
   if(homeDesign()==='family'){
     const needs = all.filter(x=>x.st==='expired'||x.st==='soon'||renewalOverdue(x.d)).sort((a,b)=>compareDocs(a.d,b.d));
     return `<div class="topbar"><h2>Needs action</h2></div>
@@ -989,7 +994,11 @@ function personPaneHTML(entry){
     + `<div class="actions"><button class="btn" data-act="addFor" data-id="${esc(p.id)}"><i class="ti ti-plus" aria-hidden="true"></i>Add a document for ${esc(p.isSelf?'you':p.name)}</button></div>`;
 }
 function renderHome(){
+  try{ renderHomeInner(); } finally { _calMemo = null; }
+}
+function renderHomeInner(){
   const el = $('list-pane'); if(!el || $('app').classList.contains('hidden')) return;
+  _lastDrawDay = toISO(todayDate());
   const today = todayDate();
   const all = homeDocs();
   const counts = { expired:0, soon:0, valid:0, renewing:0, archived:0 };
@@ -1071,7 +1080,6 @@ function renderHome(){
     <div class="fab-wrap"><button class="fab" data-act="openAdd"><i class="ti ti-plus" aria-hidden="true"></i>Add</button></div>`;
   if(ui.searchOpen && ui._focusSearch){ ui._focusSearch = false; const s = $('search-input'); if(s){ s.focus(); } }
   if(!topPane() && layoutMode()!=='phone' && !ui._typingSearch) renderSide(null); // keep the unfolded overview current
-  _calMemo = null;
 }
 
 /* ---------- Home: month calendar of expiry dates ---------- */
@@ -1847,7 +1855,7 @@ function openAddSheet(){
 }
 function defaultOwnerId(){
   const tp = topPane(); if(tp && tp.screen==='person' && profileById(tp.id) && !profileById(tp.id).deleted) return tp.id; // adding from a person's list
-  if(ui.profile!=='all' && profileById(ui.profile)) return ui.profile;
+  if(ui.profile!=='all' && profileById(ui.profile) && !profileById(ui.profile).deleted) return ui.profile;
   const self = activeProfiles().find(p=>p.isSelf) || activeProfiles()[0];
   return self ? self.id : null;
 }
@@ -2165,7 +2173,8 @@ window.addEventListener('resize', ()=>{
   if(window.innerWidth===_lastW) return;
   _lastW = window.innerWidth;
   const a = document.activeElement;
-  if(a && a.id==='search-input') renderHomeKeepSearchFocus(); else renderHome();
+  if(a && a.id==='search-input'){ renderHomeKeepSearchFocus(); if(!topPane() && layoutMode()!=='phone') renderSide(null); }
+  else renderHome();
 });
 
 /* =====================================================================================
@@ -2783,7 +2792,7 @@ document.addEventListener('visibilitychange', ()=>{
   }
   if(autoLockDue()){ lockApp(); return; }
   if(_locked && lockRec && loadBio() && !$('lock-screen').classList.contains('hidden')) setTimeout(doBioUnlock, 250);
-  else if(!_locked) renderNav(false); // a new day may have started while away
+  else if(!_locked){ if(_skPriv && Date.now() >= revealUntil) hideReveal(); updateSyncBits(); if(_lastDrawDay !== toISO(todayDate())) renderNav(false); } // "synced N min ago" stays current; a new day may change statuses
 });
 checkBioPlatform().then(()=>{
   if(_locked && !$('lock-screen').classList.contains('hidden')) renderLockScreen();
@@ -4417,6 +4426,7 @@ async function syncNow(opts){
     }
     const base = cfg.baseState || emptySync();
     const local = syncableState(state);
+    const remoteAsDownloaded = clone(remote);
     const { merged, conflicts } = mergeStates(base, local, remote);
     if(conflicts.length){
       if(!opts.interactive){ cfg.pendingConflicts = conflicts.length; saveSyncCfg(); _syncNote = ''; return { ok:false, conflicts:conflicts.length }; }
@@ -4426,14 +4436,14 @@ async function syncNow(opts){
       conflicts.forEach(c=>{ const w = pick[c.id]==='remote' ? c.remote : c.local; if(w) merged.documents.push(w); });
     }
     dedupeSelf(merged, remote);
-    if(ui.profile!=='all' && !merged.profiles.some(p=>p.id===ui.profile)) ui.profile = 'all';
+    if(ui.profile!=='all' && !merged.profiles.some(p=>p.id===ui.profile && !p.deleted)) ui.profile = 'all';
     applyMerged(merged);
     await lockTypeImages();
     const files = await syncFiles(base.documents);
     if(!files || _locked || syncCfg!==cfg) return { ok:false };
     save();
     const pushed = syncableState(state), seqPushed = cfg.localChangeSeq;
-    const same = text && text!=='{}' && !cfg.authDirty && !files.up && deepEqual(pushed, remote);
+    const same = text && text!=='{}' && !cfg.authDirty && !files.up && deepEqual(pushed, remoteAsDownloaded);
     if(!same) await gh('PATCH', '/gists/'+encodeURIComponent(cfg.gistId), { files:{ [STATE_FILE]:{ content: await makeEnvelope(pushed) } } });
     if(_locked || syncCfg!==cfg) return { ok:false };
     cfg.baseState = pushed; cfg.lastSyncedAt = new Date().toISOString(); cfg.syncedSeq = seqPushed;
@@ -4598,7 +4608,7 @@ function settleSync(maxMs){
 // Stops early when offline, after a failure, or when a conflict needs the user.
 async function settleSyncFor(maxMs){
   const end = Date.now() + maxMs;
-  while(syncCfg && !_locked && (_syncing || syncPending()) && Date.now() < end){
+  while(syncCfg && !_locked && !window.EXPIRY_NO_AUTOSYNC && (_syncing || syncPending()) && Date.now() < end){
     if(!_syncing && (syncCfg.pendingConflicts || (typeof navigator.onLine==='boolean' && !navigator.onLine))) break;
     const errBefore = syncCfg.lastError;
     await settleSync(end - Date.now());
@@ -4930,7 +4940,7 @@ async function applyBackup(b, mode){
   await lockTypeImages().catch(()=>0);
   const keep = new Set(allAtts(state.documents).map(a=>a.id));
   await deleteAttachmentFiles(oldAtts.filter(a=>!keep.has(a.id)));
-  if(ui.profile!=='all' && !profileById(ui.profile)) ui.profile = 'all';
+  if(ui.profile!=='all' && (!profileById(ui.profile) || profileById(ui.profile).deleted)) ui.profile = 'all';
   applyTheme(); save();
   while(nav.length) nav.pop(); lastSheetEntry = null;
   renderNav(true);
