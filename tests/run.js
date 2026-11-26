@@ -172,6 +172,53 @@ async function revealWithPassword(a, pw = PW){
 }
 
 async function main(){
+  /* ================= Home designs: list · timeline · family ================= */
+  for (const width of [400, 900]) {
+    const H = await open({ width }); // today is 6 Nov 2026
+    await setup(H);
+    H.ev(`state.profiles.push({id:'sp', name:'Siham', relation:'Spouse', color:'teal'}, {id:'ah', name:'Ahmed', relation:'Son', color:'orange'})`);
+    H.ev(`(function(){
+      const me = state.profiles[0].id;
+      const mk = (id, type, owner, exp, extra) => Object.assign({ id, typeId:type, ownerId:owner, values:{ expiry:exp }, sealed:{}, masks:{},
+        reminders: typeById(type).reminders.map((r,i)=>Object.assign({ id:id+'r'+i }, r)), attachments:[], history:[], state:'active' }, extra || {});
+      state.documents = [ mk('v1','visa','sp','2026-10-20'), mk('p1','passport','ah','2027-06-26'), mk('r1','vehicle-registration',me,'2027-04-19'),
+        mk('r2','vehicle-registration',me,'2027-01-10',{ state:'renewing', renewal:{ appliedOn:'2026-10-01', expectedBy:'2026-11-01' } }), mk('n1','national-id','sp','2031-03-01') ];
+      save(); renderHome();
+    })()`);
+    const tag = width < 720 ? 'folded' : 'unfolded';
+    const closePane = async () => { await H.click(width < 720 ? '#side-pane [data-act="back"]' : '#side-pane [data-act="closePanes"]'); };
+    // A: list (the default)
+    record(`HD1 (${tag}). Default design is the list; rows show the person and the date, time left in words`, H.ev('homeDesign()') === 'list' && /Siham · expired 20 Oct 2026/.test(H.text('#doc-list')) && /17 days ago/.test(H.text('#doc-list')), H.text('#doc-list'));
+    await H.click('[data-act="openDoc"][data-id="v1"]');
+    record(`HD2 (${tag}). Expired document: plain prompt, Renew is the main button`, /Expired on 20 Oct 2026/.test(H.text('#side-pane')) && !!H.$('#side-pane .actions.top .btn.primary[data-act="renew"]'));
+    await closePane();
+    if (width >= 720) record('HD3 (unfolded). Nothing open: the right side shows each person with counts', /Your family/.test(H.text('#side-pane')) && H.$$('#side-pane .person').length === 3 && /1 expired/.test(H.text('#side-pane')));
+    // Settings: choose the design
+    await H.click('[data-act="openSettings"]');
+    record(`HD4 (${tag}). Settings offers the three Home designs`, H.$$('#side-pane [data-act="homeDesign"]').length === 3);
+    await H.click('#side-pane [data-act="homeDesign"][data-v="timeline"]');
+    record(`HD5 (${tag}). Choosing Timeline saves it`, H.ev('state.settings.homeDesign') === 'timeline');
+    await closePane();
+    // B: timeline
+    const tl = H.text('#timeline');
+    record(`HD6 (${tag}). Timeline: to-do for the expired visa and the overdue renewal`, /Renew Siham’s visa/.test(tl) && /renewal is overdue/.test(tl), tl.slice(0, 300));
+    record(`HD7 (${tag}). Timeline: the next 12 months by month; nothing from 2031`, /December 2026/.test(tl) && /Ahmed’s passport/.test(tl) && /June 2027/.test(tl) && !/2031/.test(tl), tl.slice(0, 600));
+    await H.click('[data-act="tlMode"][data-m="all"]');
+    record(`HD8 (${tag}). Timeline → All documents shows the full list with counters`, !!H.$('#doc-list') && !!H.$('.counters') && /National ID/.test(H.text('#doc-list')));
+    // C: family
+    H.ev(`state.settings.homeDesign = 'family'; ui.tlAll = false; save(); renderHome();`);
+    record(`HD9 (${tag}). Family: a card per person, and what needs action`, H.$$('#family .person').length === 3 && /need/.test(H.text('#list-pane .home-strip.red')));
+    await H.click('#family .person[data-id="sp"]');
+    record(`HD10 (${tag}). Tapping a person shows their documents`, /Siham’s documents/.test(H.text('#side-pane')) && /Visa/.test(H.text('#side-pane')) && !/Passport/.test(H.text('#side-pane')));
+    await H.click('#side-pane [data-act="openDoc"][data-id="v1"]');
+    record(`HD11 (${tag}). A document opens from there`, /Expired on/.test(H.text('#side-pane')));
+    await H.click(width < 720 ? '#side-pane .phone-only[data-act="back"]' : '#side-pane .wide-only[data-act="back"]');
+    record(`HD12 (${tag}). Back returns to that person's list`, /Siham’s documents/.test(H.text('#side-pane')));
+    H.ev('closeAllPanes()'); await sleep(5);
+    await H.click('#list-pane button.link-btn[data-act="familyList"]');
+    record(`HD13 (${tag}). “All documents” shows the list, with a way back to the family`, !!H.$('#doc-list') && !!H.$('[data-act="familyHome"]'));
+  }
+
   /* ================= automatic sync (no "Sync now" needed) ================= */
   {
     const G = makeGitHub();
@@ -883,7 +930,7 @@ async function main(){
     await a.click(a.$$('#doc-list .row').find(r => /Passport/.test(r.textContent)));
     await a.click('[data-act="docMore"]'); await a.click('#sheet [data-act="sheetChoice"][data-i="2"]'); await a.click('#sheet [data-act="sheetChoice"][data-i="0"]'); await sleep(10);
     record('Q12. Deleting keeps a note to cancel its calendar events', a.ev('state.calTombstones.length') === 1);
-    record('Q13. Home shows the calendar nudge', /up to date in your calendar/.test(a.text('.summary')), a.text('.summary'));
+    record('Q13. Home shows the calendar strip (not hidden by the summary’s X)', /Calendar out of date for 1 document/.test(a.text('.home-strip')), a.text('#list-pane'));
     await a.click('[data-act="calAll"]');
     await a.click('[data-act="calDownload"]'); await sleep(20); await a.click('[data-act="calConfirmed"]');
     const ics4 = (await lastIcs()).replace(/\r\n /g, '');
@@ -897,12 +944,12 @@ async function main(){
     record('Q15. Share is offered when the phone supports sharing files', !!a.$('#sheet [data-act="calShare"]'));
     await a.click('[data-act="calShare"]'); await sleep(20);
     record('Q16. Share hands over the .ics file', shared && shared.files && /^expiry-all-reminders-\d{8}-\d{4}\.ics$/.test(shared.files[0].name));
-    record('Q16a. Shared but not confirmed: Home asks you to check', /not confirmed in your calendar/.test(a.text('.summary')) && /not confirmed/.test(a.text('#sheet')) === false);
+    record('Q16a. Shared but not confirmed: Home asks you to check', /not confirmed in your calendar/.test(a.text('#list-pane .home-strip')) && /not confirmed/.test(a.text('#sheet')) === false);
     await a.click('#sheet [data-act="back"]');
     await a.click('[data-act="calCheck"]');
     record('Q16b. “Check” lists what to look for and lets you confirm', /Did the reminders reach your calendar/.test(a.text('#sheet')) && !!a.$('#sheet [data-act="calConfirmed"]'));
     await a.click('[data-act="calConfirmed"]');
-    record('Q16c. Confirmed: nudge gone', !/not confirmed/.test(a.text('.summary')) && a.ev('calUnconfirmed().length') === 0);
+    record('Q16c. Confirmed: nudge gone', !/not confirmed/.test(a.text('#list-pane')) && a.ev('calUnconfirmed().length') === 0);
     // reminder time
     const t = a.$('#remtime'); t.value = '07:30'; t.dispatchEvent(new a.w.Event('change', { bubbles: true })); await sleep(10);
     record('Q17. Changing the reminder time marks the calendar out of date', a.ev('state.settings.reminderTime') === '07:30' && a.ev('calNeedsUpdate().length') >= 1);
@@ -911,12 +958,13 @@ async function main(){
     record('Q17a. Files sent by the earlier version count as not confirmed', a.ev(`calStatus(docById(${JSON.stringify(iid)}))`) === 'sent');
     a.ev(`docById(${JSON.stringify(iid)}).cal.confirmed = true; save()`);
     record('Q18. New time used in the file', (await lastIcs()).includes('T073000'));
-    a.ev(`docById(${JSON.stringify(iid)}).values.expiry = '2026-11-20'; save();`); // inside its reminder window
+    a.ev(`Object.assign(docById(${JSON.stringify(iid)}), { state:'renewing', renewal:{ appliedOn:'2026-10-01', expectedBy:'2026-11-01' } }); save();`); // renewal overdue
     const snap = await a.snapshot();
+    a.ev(`Object.assign(docById(${JSON.stringify(iid)}), { state:'active', renewal:null }); docById(${JSON.stringify(iid)}).values.expiry = '2026-11-20'; save();`);
     // summary: dismiss for today
     const b = await open({ storage: snap });
     await unlock(b);
-    record('Q19. Home summary lists documents needing attention', /needs attention/.test(b.text('.summary')) && /Insurance/.test(b.text('.summary')));
+    record('Q19. Home summary lists what the list doesn’t show (an overdue renewal)', /needs attention/.test(b.text('.summary')) && /Insurance/.test(b.text('.summary')) && /not marked as received/.test(b.text('.summary')));
     await b.click('[data-act="dismissSummary"]');
     record('Q20. Dismissed for today', !b.$('.summary'));
     const snap2 = await b.snapshot();
@@ -1475,7 +1523,7 @@ async function main(){
   {
     const a = await open({ storage: saved, width: 900 });
     await unlock(a);
-    record('W1. Unfolded: layout mode fold, placeholder in the right pane', a.d.documentElement.getAttribute('data-layout') === 'fold' && /Select a document/.test(a.text('#side-pane')));
+    record('W1. Unfolded: layout mode fold, family overview in the right pane', a.d.documentElement.getAttribute('data-layout') === 'fold' && /Your family/.test(a.text('#side-pane')) && a.$$('#side-pane .person').length >= 1);
     await a.click(a.$$('#doc-list .row')[0]);
     await a.click(a.$$('#doc-list .row')[1]);
     record('W2. Picking another document replaces the right pane', a.ev('nav.length') === 1 && a.$$('#doc-list .row.sel').length === 1);

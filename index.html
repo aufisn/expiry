@@ -65,9 +65,52 @@
   .chip.on{background:var(--accent-bg); border-color:var(--accent); color:var(--accent);}
   .dot{width:8px; height:8px; border-radius:50%; flex:none;}
   .counters{display:grid; grid-template-columns:repeat(auto-fit,minmax(0,1fr)); gap:8px; margin:4px 0 8px;}
-  .counter{border:1px solid transparent; border-radius:10px; padding:8px 4px; text-align:center;}
-  .counter b{display:block; font-size:20px; font-weight:600;}
-  .counter span{font-size:12px;}
+  .counter{border:1px solid transparent; border-radius:10px; padding:5px 2px; text-align:center;}
+  .counter b{display:block; font-size:17px; font-weight:600; line-height:1.2;}
+  .counter span{font-size:11px;}
+  /* ---------- Home designs (list · timeline · family) ---------- */
+  .sync-pill{display:inline-flex; align-items:center; gap:5px; border:none; border-radius:999px; padding:5px 10px; font-size:12px; font-weight:500; white-space:nowrap; flex:none; margin-right:2px;}
+  .sync-pill .ti{font-size:15px;} .sync-pill .lbl-long{display:none;}
+  .sp-green{background:var(--green-bg); color:var(--green);} .sp-amber{background:var(--amber-bg); color:var(--amber);}
+  .sp-red{background:var(--red-bg); color:var(--red);} .sp-blue{background:var(--blue-bg); color:var(--blue);}
+  @media (max-width:379.98px){ .sync-pill .lbl{display:none;} .sync-pill{padding:6px 8px;} }
+  .home-strip{display:flex; align-items:center; gap:8px; width:100%; text-align:left; border-radius:10px; padding:9px 11px; font-size:13px; margin:0 0 8px; border:1px solid; min-height:44px;}
+  .home-strip span{flex:1; color:var(--text);} .home-strip u{font-weight:600; text-decoration:none;} .home-strip .ti{font-size:18px;}
+  .home-strip.amber{background:var(--amber-bg); color:var(--amber); border-color:color-mix(in srgb, var(--amber) 40%, transparent);}
+  .home-strip.red{background:var(--red-bg); color:var(--red); border-color:color-mix(in srgb, var(--red) 40%, transparent);}
+  .seg{display:flex; border:1px solid var(--border-strong); border-radius:10px; overflow:hidden; margin:2px 0 10px;}
+  .seg button{flex:1; background:none; border:none; padding:8px; font-size:13px; color:var(--text-2); min-height:40px;}
+  .seg button.on{background:var(--accent-bg); color:var(--accent); font-weight:600;}
+  .todo{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:2px 12px; margin:0 0 6px;}
+  .todo-item{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:none; border:none; border-bottom:1px solid var(--border); padding:9px 0; min-height:48px;}
+  .todo-item:last-child{border-bottom:none;} .todo-item .ti{font-size:20px;} .todo-item .ti-chevron-right{color:var(--text-3);}
+  .tl-month{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-3); margin:14px 0 2px; text-transform:uppercase; letter-spacing:.05em;}
+  .tl-month::after{content:''; flex:1; height:1px; background:var(--border);}
+  .tl-item{display:flex; gap:12px; width:100%; text-align:left; background:none; border:none; padding:8px 0; min-height:48px;}
+  .tl-item.sel{background:var(--surface-2); border-radius:10px;}
+  .tl-day{width:40px; text-align:center; flex:none;} .tl-day b{display:block; font-size:18px; font-weight:600; line-height:1.1;} .tl-day small{font-size:11px; color:var(--text-3);}
+  .tl-body{flex:1; min-width:0; border-left:3px solid var(--text-3); padding-left:10px;}
+  .tl-body.k-expiry{border-color:var(--red);} .tl-body.k-reminder{border-color:var(--amber);} .tl-body.k-followup{border-color:var(--blue);}
+  .tl-title{font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;} .tl-sub{font-size:12px; color:var(--text-2);}
+  .person{display:block; width:100%; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; margin:0 0 10px;}
+  .person.sel{box-shadow:0 0 0 2px var(--accent);}
+  .person-top{display:flex; align-items:center; gap:10px;}
+  .avatar{width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:600; font-size:14px; flex:none;
+    background:color-mix(in srgb, var(--pc, var(--text-3)) 22%, transparent); color:var(--pc, var(--text-2));}
+  .person-name{font-weight:600; font-size:16px;} .person-sub{font-size:12px; color:var(--text-2);}
+  .person-counts{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+  .person-next{margin-top:8px; font-size:13px; color:var(--text-2); display:flex; gap:6px; align-items:center;}
+  .person-next.bad{color:var(--red);}
+  .person-show{font-size:13px; border:1px solid var(--border-strong); border-radius:8px; padding:6px 10px; color:var(--text-2);}
+  .back-chip{display:inline-flex; align-items:center; gap:4px; background:none; border:1px solid var(--border-strong); border-radius:999px; padding:6px 12px; font-size:13px; color:var(--text-2); margin:0 0 8px; min-height:36px;}
+  .doc-prompt{display:flex; gap:8px; align-items:center; padding:10px 12px; border-radius:10px; font-size:14px; margin:8px 0;}
+  .doc-prompt.expired{background:var(--red-bg);} .doc-prompt.expired .ti{color:var(--red);}
+  .doc-prompt.soon{background:var(--amber-bg);} .doc-prompt.soon .ti{color:var(--amber);}
+  .actions.top{margin:8px 0 4px;}
+  .design-opt{display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin:6px 0;}
+  .design-opt.on{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent);}
+  .design-opt .ti{font-size:22px; color:var(--accent);} .design-opt b{display:block; font-weight:600;} .design-opt small{color:var(--text-2); font-size:12px;}
+  #list-pane{padding-bottom:96px;}
   .counter.on{border-color:currentColor;}
   .banner{display:flex; gap:8px; align-items:flex-start; font-size:13px; padding:10px 12px; border-radius:10px; background:var(--amber-bg); color:var(--amber); margin:4px 0 8px;}
 
@@ -777,6 +820,158 @@ function homeDocs(){
     return hay.includes(q);
   }).map(d=>({ d, st:docStatus(d, today) }));
 }
+/* ---------- Home design: list (A) · timeline (B) · family (C), chosen in Settings ---------- */
+const HOME_DESIGNS = [
+  ['list', 'List', 'ti-list-details', 'Every document by status: needs action, in progress, valid.'],
+  ['timeline', 'Timeline', 'ti-timeline-event', 'A to-do card, then every reminder and expiry for the next 12 months.'],
+  ['family', 'Family', 'ti-users-group', 'A card per person with their counts and what’s next.'],
+];
+function homeDesign(){ const v = state.settings && state.settings.homeDesign; return HOME_DESIGNS.some(x=>x[0]===v) ? v : 'list'; }
+// "3 months", "17 days ago": whole words for rows (the short form stays on small badges elsewhere)
+function timeLeftWords(iso, today){
+  return timeLeftLabel(iso, today).replace(/^(\d+)d ago$/, (m,n)=>n+(n==='1'?' day ago':' days ago'))
+    .replace(/ mo ago$/,' months ago').replace(/ yrs ago$/,' years ago').replace(/ mo$/,' months').replace(/ yrs$/,' years')
+    .replace(/^1 months/,'1 month').replace(/^1 years/,'1 year');
+}
+function renewalOverdue(d, today){ return d.state==='renewing' && d.renewal && d.renewal.expectedBy && daysBetween(today||todayDate(), parseISO(d.renewal.expectedBy)) < 0; }
+function rowDateLine(d, st){
+  if(st==='renewing') return d.renewal && d.renewal.expectedBy ? (renewalOverdue(d) ? 'renewal overdue · expected ' : 'expected ')+fmtDate(d.renewal.expectedBy) : 'renewing';
+  if(!d.values.expiry) return '';
+  if(st==='expired') return 'expired '+fmtDate(d.values.expiry);
+  return fmtDate(d.values.expiry);
+}
+function docRowHTML({d, st}, opts){
+  opts = opts || {};
+  const t = typeById(d.typeId), p = profileById(d.ownerId), today = todayDate();
+  const owner = opts.showOwner!==false && ui.profile==='all' && p ? `<span class="dot pc-${esc(p.color)}"></span>${esc(p.name)}` : '';
+  const sub = [owner, esc(rowDateLine(d, st)), esc(listValue(d))].filter(Boolean).join(' · ');
+  const badge = st==='archived' || st==='renewing' ? badgeText(d, today) : timeLeftWords(d.values.expiry, today) || badgeText(d, today);
+  return `<button class="row${opts.sel===d.id?' sel':''}" data-act="openDoc" data-id="${esc(d.id)}">
+      <i class="ti ti-${esc(t.icon)}" aria-hidden="true"></i>
+      <div class="row-main"><div class="row-title">${esc(docTitle(d))}</div>${sub?`<div class="row-sub">${sub}</div>`:''}</div>
+      <span class="badge st-${st}">${esc(badge)}</span></button>`;
+}
+// The sync status pill: replaces pressing "Sync now"; amber or red only when something needs you.
+function syncState(){
+  if(!syncCfg) return null;
+  if(_syncing) return { cls:'blue', icon:'refresh', short:'Syncing', long:'Syncing…' };
+  if(syncCfg.pendingConflicts) return { cls:'red', icon:'git-merge', short:'Decide', long:'Sync needs your decision' };
+  if(syncCfg.lastError) return { cls:'red', icon:'cloud-off', short:'Not synced', long:'Not synced · tap to retry' };
+  if(typeof syncPending==='function' && syncPending()) return { cls:'amber', icon:'cloud-upload', short:'Saving', long:'Saved here · syncing soon' };
+  const mins = syncCfg.lastSyncedAt ? Math.round((Date.now() - Date.parse(syncCfg.lastSyncedAt))/60000) : null;
+  const ago = mins===null ? '' : mins < 1 ? ' just now' : mins < 60 ? ' '+mins+' min ago' : mins < 1440 ? ' '+Math.round(mins/60)+' h ago' : ' '+Math.round(mins/1440)+' days ago';
+  return { cls:'green', icon:'cloud-check', short:'Synced', long:'Synced'+ago };
+}
+function syncPillHTML(){
+  const s = syncState(); if(!s) return '';
+  return `<button id="sync-pill" class="sync-pill sp-${s.cls}" data-act="syncPill" title="${esc(s.long)}" aria-label="${esc(s.long)}"><i class="ti ti-${s.icon}" aria-hidden="true"></i><span class="lbl">${esc(s.short)}</span><span class="lbl-long">${esc(s.long)}</span></button>`;
+}
+function updateSyncPill(){ const el = $('sync-pill'); if(el) el.outerHTML = syncPillHTML(); }
+// Calendar out of date: its own strip, not hidden by the summary's X; it goes away once you update.
+function calendarStripHTML(){
+  const calN = calNeedsUpdate().length, calU = calUnconfirmed().length;
+  let h = '';
+  if(calN) h += `<button class="home-strip amber" data-act="calAll"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar out of date for ${calN} document${calN===1?'':'s'}</span><u>Update</u></button>`;
+  if(calU) h += `<button class="home-strip amber" data-act="calCheck"><i class="ti ti-calendar-question" aria-hidden="true"></i><span>${calU} document${calU===1?'’s':'s’'} reminders not confirmed in your calendar</span><u>Check</u></button>`;
+  return h;
+}
+function needsCounts(all){
+  const today = todayDate();
+  return { need: all.filter(x=>x.st==='expired'||x.st==='soon').length, overdue: all.filter(x=>renewalOverdue(x.d, today)).length };
+}
+function attentionStripHTML(all, act){
+  const n = needsCounts(all); if(!n.need && !n.overdue) return '';
+  const bits = []; if(n.need) bits.push(n.need+' need'+(n.need===1?'s':'')+' action'); if(n.overdue) bits.push(n.overdue+' renewal'+(n.overdue===1?'':'s')+' overdue');
+  return `<button class="home-strip red" data-act="${act||'showNeeds'}"><i class="ti ti-alert-circle" aria-hidden="true"></i><span>${esc(bits.join(' · '))}</span><u>See</u></button>`;
+}
+// One card per person: counts by status and the next thing for them.
+function personCardHTML(p, docs, opts){
+  opts = opts || {};
+  const today = todayDate(), live = docs.filter(x=>x.st!=='archived');
+  const c = { expired:0, soon:0, renewing:0, valid:0 }; live.forEach(x=>{ if(c[x.st]!==undefined) c[x.st]++; });
+  const chips = [['expired','expired'],['soon','soon'],['renewing','renewing'],['valid','valid']].filter(([k])=>c[k]).map(([k,l])=>`<span class="badge st-${k}">${c[k]} ${l}</span>`).join('');
+  const exp = live.filter(x=>x.st==='expired').sort((a,b)=>compareDocs(a.d,b.d))[0];
+  const over = live.find(x=>renewalOverdue(x.d, today));
+  const next = live.filter(x=>x.st!=='expired' && x.st!=='renewing' && x.d.values.expiry).sort((a,b)=>compareDocs(a.d,b.d))[0];
+  const nextLine = exp ? `<div class="person-next bad"><i class="ti ti-alert-circle" aria-hidden="true"></i>${esc(docTitle(exp.d))} expired ${esc(fmtDate(exp.d.values.expiry))}</div>`
+    : over ? `<div class="person-next bad"><i class="ti ti-hourglass" aria-hidden="true"></i>${esc(docTitle(over.d))} renewal overdue</div>`
+    : next ? `<div class="person-next"><i class="ti ti-calendar-event" aria-hidden="true"></i>Next: ${esc(docTitle(next.d))} · ${esc(fmtDate(next.d.values.expiry))}</div>`
+    : `<div class="person-next">${live.length ? 'Nothing coming up' : 'No documents yet'}</div>`;
+  const initials = p.name.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  return `<button class="person pc-${esc(p.color)}${opts.sel?' sel':''}" data-act="${opts.act||'openPerson'}" data-id="${esc(p.id)}">
+    <div class="person-top"><span class="avatar">${esc(initials)}</span><div style="flex:1;min-width:0"><div class="person-name">${esc(p.name)}</div><div class="person-sub">${esc(p.isSelf ? 'You' : (p.relation||''))}${p.isSelf||p.relation?' · ':''}${live.length} document${live.length===1?'':'s'}</div></div>
+      ${opts.act==='filterProfile' ? '<span class="person-show">Show list</span>' : '<i class="ti ti-chevron-right" aria-hidden="true" style="color:var(--text-3)"></i>'}</div>
+    ${chips ? `<div class="person-counts">${chips}</div>` : ''}${nextLine}</button>`;
+}
+function familyCardsHTML(opts){
+  const all = state.documents.map(d=>({ d, st:docStatus(d, todayDate()) }));
+  const selId = topPane() && topPane().screen==='person' ? topPane().id : null;
+  return activeProfiles().map(p=>personCardHTML(p, all.filter(x=>x.d.ownerId===p.id), Object.assign({ sel: selId===p.id }, opts||{}))).join('');
+}
+// Timeline (B): every reminder, expiry and renewal follow-up in the next 12 months.
+function timelineEvents(all){
+  const today = todayDate(), end = shiftDate(today, 12, 'months'), out = [];
+  const inRange = iso=>{ const dt = parseISO(iso); return dt && daysBetween(today, dt) >= 0 && daysBetween(dt, end) >= 0; };
+  for(const {d, st} of all){
+    if(st==='archived') continue;
+    const who = ownerPossessive(d) + ' ' + docTitleInline(d);
+    if(st==='renewing'){
+      if(d.renewal && d.renewal.expectedBy && inRange(d.renewal.expectedBy)) out.push({ date:d.renewal.expectedBy, kind:'followup', d, title:who+' renewal', sub:'Renewal expected · check it has arrived' });
+      continue;
+    }
+    for(const r of reminderDates(d)) if(inRange(r.date)) out.push({ date:r.date, kind:'reminder', d, title:who, sub:`Reminder · expires ${fmtDate(d.values.expiry)} (${r.lead} before)` });
+    if(d.values.expiry && inRange(d.values.expiry)) out.push({ date:d.values.expiry, kind:'expiry', d, title:who, sub:'Expires' });
+  }
+  return out.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.kind==='expiry'?1:-1));
+}
+function timelineHTML(all, sel){
+  const today = todayDate();
+  const todo = [];
+  all.filter(x=>x.st==='expired').sort((a,b)=>compareDocs(a.d,b.d)).forEach(({d})=>todo.push(
+    `<button class="todo-item" data-act="openDoc" data-id="${esc(d.id)}"><i class="ti ti-alert-circle" style="color:var(--red)" aria-hidden="true"></i><div class="row-main"><div class="row-title">Renew ${esc(ownerPossessive(d).toLowerCase()==='your'?'your':ownerPossessive(d))} ${esc(docTitleInline(d))}</div><div class="row-sub">Expired ${esc(fmtDate(d.values.expiry))} · ${esc(timeLeftWords(d.values.expiry, today))}</div></div><i class="ti ti-chevron-right" aria-hidden="true"></i></button>`));
+  all.filter(x=>renewalOverdue(x.d, today)).forEach(({d})=>todo.push(
+    `<button class="todo-item" data-act="openDoc" data-id="${esc(d.id)}"><i class="ti ti-hourglass" style="color:var(--blue)" aria-hidden="true"></i><div class="row-main"><div class="row-title">${esc(docTitle(d))} renewal is overdue</div><div class="row-sub">Expected ${esc(fmtDate(d.renewal.expectedBy))} · has it arrived?</div></div><i class="ti ti-chevron-right" aria-hidden="true"></i></button>`));
+  const evs = timelineEvents(all);
+  const mfmt = new Intl.DateTimeFormat(undefined, { month:'long', year:'numeric' }), wfmt = new Intl.DateTimeFormat(undefined, { weekday:'short' });
+  let html = todo.length ? `<div class="todo" aria-label="To do">${todo.join('')}</div>` : '';
+  let month = '';
+  for(const e of evs){
+    const dt = parseISO(e.date), m = mfmt.format(dt);
+    if(m!==month){ month = m; html += `<div class="tl-month">${esc(m)}</div>`; }
+    html += `<button class="tl-item${sel===e.d.id?' sel':''}" data-act="openDoc" data-id="${esc(e.d.id)}"><div class="tl-day"><b>${dt.getDate()}</b><small>${esc(wfmt.format(dt))}</small></div>
+      <div class="tl-body k-${e.kind}"><div class="tl-title">${esc(e.title.charAt(0).toUpperCase()+e.title.slice(1))}</div><div class="tl-sub">${esc(e.sub)}</div></div></button>`;
+  }
+  if(!evs.length) html += `<div class="empty"><div>Nothing is due in the next 12 months.</div><button class="link-btn" data-act="tlMode" data-m="all">See all documents</button></div>`;
+  else html += `<button class="link-btn" data-act="tlMode" data-m="all" style="margin-top:10px">All documents, including later ones</button>`;
+  return html;
+}
+// The empty right pane when unfolded: a family overview instead of "Select a document".
+function overviewPaneHTML(){
+  const all = state.documents.map(d=>({ d, st:docStatus(d, todayDate()) }));
+  if(!state.documents.length) return `<div class="empty" style="padding-top:30vh"><i class="ti ti-file-search" aria-hidden="true"></i><h3>Select a document</h3><div>Its details, reminders and scans show here.</div></div>`;
+  const s = syncState();
+  const status = `<div class="sec-title">Status</div><div class="card">
+      ${s ? `<div class="cal-line ${s.cls==='green'?'ok':s.cls==='blue'?'':'warn'}" style="padding:8px 0"><i class="ti ti-${s.icon}" aria-hidden="true"></i><span>${s.cls==='green'?'All changes saved and synced':esc(s.long)}</span></div>` : `<div class="cal-line" style="padding:8px 0"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>GitHub sync is off</span><button class="mini-btn" data-act="openSettings">Settings</button></div>`}
+      ${calNeedsUpdate().length ? `<div class="cal-line warn" style="padding:8px 0"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar: ${calNeedsUpdate().length} document(s) changed</span><button class="mini-btn" data-act="calAll">Update</button></div>` : `<div class="cal-line ok" style="padding:8px 0"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Calendar up to date</span></div>`}</div>`;
+  if(homeDesign()==='family'){
+    const needs = all.filter(x=>x.st==='expired'||x.st==='soon'||renewalOverdue(x.d)).sort((a,b)=>compareDocs(a.d,b.d));
+    return `<div class="topbar"><h2>Needs action</h2></div>
+      ${needs.length ? needs.map(x=>docRowHTML(x)).join('') : '<div class="empty"><i class="ti ti-circle-check" aria-hidden="true"></i><div>Nothing needs action. Pick a person to see their documents.</div></div>'}${status}`;
+  }
+  return `<div class="topbar"><h2>Your family</h2></div>${attentionStripHTML(all)}${familyCardsHTML({ act:'filterProfile' })}${status}`;
+}
+function personPaneHTML(entry){
+  const p = profileById(entry.id); if(!p) return paneTop('Not found') + `<div class="empty">This person no longer exists.</div>`;
+  const today = todayDate();
+  const docs = state.documents.filter(d=>d.ownerId===p.id).map(d=>({ d, st:docStatus(d, today) })).sort((a,b)=>compareDocs(a.d,b.d));
+  const live = docs.filter(x=>x.st!=='archived');
+  const groups = [['Needs action', live.filter(x=>x.st==='expired'||x.st==='soon')], ['In progress', live.filter(x=>x.st==='renewing')], ['Valid', live.filter(x=>x.st==='valid')], ['Archived', docs.filter(x=>x.st==='archived')]];
+  let body = '';
+  for(const [title, items] of groups){ if(items.length) body += `<div class="sec-title">${title}</div>` + items.map(x=>docRowHTML(x, { showOwner:false })).join(''); }
+  return paneTop(p.isSelf ? 'Your documents' : p.name+'’s documents') + `<div class="sub">${esc(p.isSelf?'You':(p.relation||''))}</div>`
+    + (body || `<div class="empty"><i class="ti ti-file-plus" aria-hidden="true"></i><div>No documents for ${esc(p.name)} yet.</div></div>`)
+    + `<div class="actions"><button class="btn" data-act="addFor" data-id="${esc(p.id)}"><i class="ti ti-plus" aria-hidden="true"></i>Add a document for ${esc(p.isSelf?'you':p.name)}</button></div>`;
+}
 function renderHome(){
   const el = $('list-pane'); if(!el || $('app').classList.contains('hidden')) return;
   const today = todayDate();
@@ -785,17 +980,8 @@ function renderHome(){
   all.forEach(x=>counts[x.st]++);
   const profiles = activeProfiles();
   const sel = topPane() && topPane().screen==='detail' ? topPane().id : null;
-
-  const row = ({d, st})=>{
-    const t = typeById(d.typeId), p = profileById(d.ownerId);
-    const lv = listValue(d);
-    const owner = ui.profile==='all' && p ? `<span class="dot pc-${esc(p.color)}"></span>${esc(p.name)}` : '';
-    const sub = [owner, esc(lv)].filter(Boolean).join(' · ');
-    return `<button class="row${sel===d.id?' sel':''}" data-act="openDoc" data-id="${esc(d.id)}">
-      <i class="ti ti-${esc(t.icon)}" aria-hidden="true"></i>
-      <div class="row-main"><div class="row-title">${esc(docTitle(d))}</div>${sub?`<div class="row-sub">${sub}</div>`:''}</div>
-      <span class="badge st-${st}">${esc(badgeText(d, today))}</span></button>`;
-  };
+  const design = homeDesign();
+  const row = x=>docRowHTML(x, { sel });
   const sortByExpiry = (a,b)=> compareDocs(a.d, b.d);
   let list = all.filter(x=>x.st!=='archived');
   if(ui.date) list = list.filter(x=>x.d.values.expiry===ui.date);
@@ -828,24 +1014,46 @@ function renderHome(){
     }
   }
 
+  // what the main area shows for this design
+  const filtering = !!(ui.search.trim() || ui.date || ui.status);
+  const familyHome = design==='family' && hasAny && ui.profile==='all' && !ui.familyList && !filtering;
+  const timelineHome = design==='timeline' && hasAny && !ui.tlAll && !filtering;
+  const showCalendar = design==='list' && hasAny && ui.view==='calendar';
+  const counters = hasAny && !familyHome && !timelineHome ? `<div class="counters">${counter('expired','Expired')}${counter('soon','Expiring soon')}${counts.renewing?counter('renewing','Renewing'):''}${counter('valid','Valid')}</div>` : '';
+  const chips = familyHome ? '' : `<div class="chips" role="tablist">
+      ${design==='family' ? `<button class="chip" data-act="familyHome"><i class="ti ti-chevron-left" aria-hidden="true"></i>Family</button>` : ''}
+      <button class="chip${ui.profile==='all'?' on':''}" data-act="filterProfile" data-id="all">All</button>
+      ${profiles.map(p=>`<button class="chip pc-${esc(p.color)}${ui.profile===p.id?' on':''}" data-act="filterProfile" data-id="${esc(p.id)}"><span class="dot"></span>${esc(p.name)}</button>`).join('')}
+    </div>`;
+  let main;
+  if(familyHome){
+    const n = state.documents.filter(d=>d.state!=='archived').length;
+    main = attentionStripHTML(all, 'familyList') + calendarStripHTML() + `<div id="family">${familyCardsHTML()}</div>`
+      + `<button class="link-btn" data-act="familyList" style="width:100%"><i class="ti ti-list" aria-hidden="true"></i> All ${n} document${n===1?'':'s'}</button>`;
+  } else if(timelineHome){
+    main = `<div class="seg" role="tablist"><button class="on" data-act="tlMode" data-m="timeline">Timeline</button><button data-act="tlMode" data-m="all">All documents</button></div>`
+      + calendarStripHTML() + `<div id="timeline">${timelineHTML(all, sel)}</div>`;
+  } else {
+    main = (design==='timeline' && hasAny ? `<div class="seg" role="tablist"><button data-act="tlMode" data-m="timeline">Timeline</button><button class="on" data-act="tlMode" data-m="all">All documents</button></div>` : '')
+      + (hasAny && !showCalendar && !ui.date ? calendarStripHTML() : '') + counters
+      + (showCalendar ? calendarHTML(all) : `${ui.date ? `<div class="date-chip"><i class="ti ti-calendar-event" aria-hidden="true"></i>Expiring ${esc(fmtDateLong(ui.date))}<button data-act="clearDate" aria-label="Show all dates"><i class="ti ti-x"></i></button></div>` : ''}<div id="doc-list">${body}</div>`);
+  }
   el.innerHTML = `
     <div class="topbar">
       <h1>Expiry</h1>
-      ${hasAny ? `<button class="icon-btn" data-act="toggleView" aria-label="${ui.view==='calendar'?'Show list':'Show calendar'}" title="${ui.view==='calendar'?'List view':'Calendar view'}"><i class="ti ti-${ui.view==='calendar'?'list':'calendar-month'}"></i></button>` : ''}
+      ${syncPillHTML()}
+      ${hasAny && design==='list' ? `<button class="icon-btn" data-act="toggleView" aria-label="${ui.view==='calendar'?'Show list':'Show calendar'}" title="${ui.view==='calendar'?'List view':'Calendar view'}"><i class="ti ti-${ui.view==='calendar'?'list':'calendar-month'}"></i></button>` : ''}
       <button class="icon-btn" data-act="toggleSearch" aria-label="Search"><i class="ti ti-search"></i></button>
       <button class="icon-btn" data-act="openProfiles" aria-label="Profiles"><i class="ti ti-users"></i></button>
       <button class="icon-btn" data-act="openSettings" aria-label="Settings"><i class="ti ti-settings"></i></button>
     </div>
     ${ui.searchOpen?`<input class="search" id="search-input" type="search" placeholder="Search documents" value="${esc(ui.search)}" data-bind="search" autocomplete="off">`:''}
-    <div class="chips" role="tablist">
-      <button class="chip${ui.profile==='all'?' on':''}" data-act="filterProfile" data-id="all">All</button>
-      ${profiles.map(p=>`<button class="chip pc-${esc(p.color)}${ui.profile===p.id?' on':''}" data-act="filterProfile" data-id="${esc(p.id)}"><span class="dot"></span>${esc(p.name)}</button>`).join('')}
-    </div>
-    ${hasAny && ui.view!=='calendar' && !ui.date ? summaryHTML() : ''}
-    ${hasAny?`<div class="counters">${counter('expired','Expired')}${counter('soon','Expiring soon')}${counts.renewing?counter('renewing','Renewing'):''}${counter('valid','Valid')}</div>`:''}
-    ${hasAny && ui.view==='calendar' ? calendarHTML(all) : `${ui.date ? `<div class="date-chip"><i class="ti ti-calendar-event" aria-hidden="true"></i>Expiring ${esc(fmtDateLong(ui.date))}<button data-act="clearDate" aria-label="Show all dates"><i class="ti ti-x"></i></button></div>` : ''}<div id="doc-list">${body}</div>`}
+    ${chips}
+    ${hasAny && !showCalendar && !ui.date ? summaryHTML() : ''}
+    ${main}
     <div class="fab-wrap"><button class="fab" data-act="openAdd"><i class="ti ti-plus" aria-hidden="true"></i>Add</button></div>`;
   if(ui.searchOpen && ui._focusSearch){ ui._focusSearch = false; const s = $('search-input'); if(s){ s.focus(); } }
+  if(!topPane()) renderSide(null); // keep the unfolded overview current
 }
 
 /* ---------- Home: month calendar of expiry dates ---------- */
@@ -905,7 +1113,8 @@ function paneTop(title, opts){
 function renderSide(entry){
   const el = $('side-pane'); if(!el) return;
   let html;
-  if(!entry) html = `<div class="empty" style="padding-top:30vh"><i class="ti ti-file-search" aria-hidden="true"></i><h3>Select a document</h3><div>Its details, reminders and scans show here.</div></div>`;
+  if(!entry) html = overviewPaneHTML();
+  else if(entry.screen==='person') html = personPaneHTML(entry);
   else if(entry.screen==='detail') html = renderDetail(entry);
   else if(entry.screen==='edit') html = renderEditor();
   else if(entry.screen==='profiles') html = renderProfiles();
@@ -954,6 +1163,11 @@ function renderDetail(entry){
     <div class="detail-head"><i class="ti ti-${esc(t.icon)}" aria-hidden="true"></i>
       <div style="flex:1;min-width:0"><div class="sub" style="margin:0">${[docTitle(d)!==t.name?esc(t.name):'', subtitle].filter(Boolean).join(' · ')}</div></div>
       <span class="badge st-${st}">${esc(st==='archived'||st==='renewing'?STATUS_LABEL[st]:STATUS_LABEL[st]+' · '+timeLeftLabel(d.values.expiry, today))}</span></div>
+    ${st==='expired' ? `<div class="doc-prompt expired"><i class="ti ti-alert-circle" aria-hidden="true"></i><span>Expired on ${esc(fmtDateLong(d.values.expiry))}. Renew it, or archive it if it’s no longer needed.</span></div>`
+      : st==='soon' ? `<div class="doc-prompt soon"><i class="ti ti-clock-exclamation" aria-hidden="true"></i><span>Expires on ${esc(fmtDateLong(d.values.expiry))}, in ${esc(timeLeftWords(d.values.expiry, today))}. Start the renewal now.</span></div>` : ''}
+    <div class="actions top">${st==='expired'||st==='soon'
+      ? `<button class="btn primary" data-act="renew" data-id="${esc(d.id)}"><i class="ti ti-refresh" aria-hidden="true"></i>Renew</button><button class="btn" data-act="editDoc" data-id="${esc(d.id)}"><i class="ti ti-edit" aria-hidden="true"></i>Edit</button>`
+      : `<button class="btn" data-act="renew" data-id="${esc(d.id)}"><i class="ti ti-refresh" aria-hidden="true"></i>Renew</button><button class="btn primary" data-act="editDoc" data-id="${esc(d.id)}"><i class="ti ti-edit" aria-hidden="true"></i>Edit</button>`}</div>
     ${archivedLineHTML(d)}
     ${renewalCardHTML(d)}
     <div class="sec-title">Details</div>
@@ -967,12 +1181,9 @@ function renderDetail(entry){
       : (remRows || '<div class="kv"><span class="muted">No reminders</span></div>')}</div>
     ${allPassed && st!=='expired' && st!=='archived' && st!=='renewing' ? `<div class="muted">All reminder dates have passed, so your calendar gets one reminder tomorrow instead.</div>`:''}
     ${calStatusHTML(d)}
+    ${(()=>{ const s = syncState(); return s ? `<div class="cal-line ${s.cls==='green'?'ok':s.cls==='blue'?'':'warn'}"><i class="ti ti-${s.icon}" aria-hidden="true"></i><span>${s.cls==='green'?'Saved and synced':esc(s.long)}</span></div>` : ''; })()}
     <div class="sec-title">History</div>
-    ${historyListHTML(d)}
-    <div class="actions">
-      <button class="btn" data-act="renew" data-id="${esc(d.id)}"><i class="ti ti-refresh" aria-hidden="true"></i>Renew</button>
-      <button class="btn primary" data-act="editDoc" data-id="${esc(d.id)}"><i class="ti ti-edit" aria-hidden="true"></i>Edit</button>
-    </div>`;
+    ${historyListHTML(d)}`;
 }
 
 /* ---------- editor ---------- */
@@ -1303,7 +1514,10 @@ function renderSettings(){
     <button class="row" data-act="openTypes"><i class="ti ti-forms" aria-hidden="true"></i><div class="row-main"><div class="row-title">Document types and fields</div><div class="row-sub">${state.types.length} types · add fields or your own types</div></div><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
     <div class="sec-title">Appearance</div>
     <div class="card" style="padding:10px 14px">
-      <div class="row-title">Theme</div>
+      <div class="row-title">Home design</div>
+      <div role="radiogroup" aria-label="Home design">${HOME_DESIGNS.map(([k,l,ic,desc])=>`<button class="design-opt${homeDesign()===k?' on':''}" role="radio" aria-checked="${homeDesign()===k}" data-act="homeDesign" data-v="${k}"><i class="ti ${ic}" aria-hidden="true"></i><span><b>${l}</b><small>${esc(desc)}</small></span></button>`).join('')}</div>
+      <p class="muted">Folded and unfolded both follow it. Unfolded, the right side shows your family overview until you open a document.</p>
+      <div class="row-title" style="margin-top:8px">Theme</div>
       <div class="chips">
         <button class="chip${th==='midnight'?' on':''}" data-act="theme" data-t="midnight">Midnight</button>
         <button class="chip${th==='paper'?' on':''}" data-act="theme" data-t="paper">Paper</button>
@@ -1614,6 +1828,7 @@ function openAddSheet(){
     <button class="opt" data-act="addMethod" data-m="manual"><i class="ti ti-keyboard" aria-hidden="true"></i><div><div class="opt-t">Enter manually</div><div class="opt-s">Type the details in</div></div></button>` });
 }
 function defaultOwnerId(){
+  const tp = topPane(); if(tp && tp.screen==='person' && profileById(tp.id)) return tp.id; // adding from a person's list
   if(ui.profile!=='all' && profileById(ui.profile)) return ui.profile;
   const self = activeProfiles().find(p=>p.isSelf) || activeProfiles()[0];
   return self ? self.id : null;
@@ -1626,7 +1841,7 @@ function openDocFromList(id){
   const top = topPane();
   const go = ()=>{
     const entry = {kind:'pane', screen:'detail', id};
-    if(window.innerWidth >= 720 && top && !(top.screen==='edit' || top.screen==='profile-edit')) replaceTop(entry);
+    if(window.innerWidth >= 720 && top && !(top.screen==='edit' || top.screen==='profile-edit' || top.screen==='person')) replaceTop(entry);
     else push(entry);
   };
   if(paneDirty(top)){
@@ -1650,6 +1865,18 @@ const ACT = {
   clearDate: ()=>{ ui.date = null; renderHome(); },
   toggleArchived: ()=>{ ui.showArchived = !ui.showArchived; renderHome(); },
   openDoc: el=>openDocFromList(el.dataset.id),
+  syncPill: ()=>{ if(syncCfg && (syncCfg.lastError || syncCfg.pendingConflicts)) syncNow({ interactive:true }); else ACT.openSettings(); },
+  homeDesign: el=>{ state.settings.homeDesign = el.dataset.v; ui.familyList = false; ui.tlAll = false; save(); const p = topPane(); if(p) renderSide(p); renderHome(); },
+  tlMode: el=>{ ui.tlAll = el.dataset.m==='all'; if(!ui.tlAll){ ui.status = null; ui.date = null; } renderHome(); },
+  familyList: ()=>{ ui.familyList = true; renderHome(); },
+  familyHome: ()=>{ ui.familyList = false; ui.profile = 'all'; ui.status = null; ui.date = null; renderHome(); },
+  showNeeds: ()=>{ ui.profile = 'all'; ui.status = null; ui.date = null; if(homeDesign()==='timeline') ui.tlAll = true; if(homeDesign()==='family') ui.familyList = true; setHomeView('list'); renderHome(); const l = $('list-pane'); if(l) l.scrollTop = 0; },
+  openPerson: el=>{
+    const entry = {kind:'pane', screen:'person', id:el.dataset.id}, top = topPane();
+    const go = ()=>{ if(window.innerWidth >= 720 && top && !(top.screen==='edit' || top.screen==='profile-edit')) replaceTop(entry); else push(entry); };
+    if(paneDirty(top)) askDiscard(()=>{ pop(); go(); }); else go();
+  },
+  addFor: ()=>openAddSheet(),
   openAdd: ()=>openAddSheet(),
   addMethod: el=>{
     const m = el.dataset.m;
@@ -3675,11 +3902,11 @@ function summaryHTML(){
   const calN = calNeedsUpdate().length, calU = calUnconfirmed().length;
   const items = state.documents.filter(d=>(ui.profile==='all' || d.ownerId===ui.profile))
     .map(d=>({ d, st:docStatus(d, today) }))
-    .filter(x=>x.st==='expired' || x.st==='soon' || (x.st==='renewing' && x.d.renewal && x.d.renewal.expectedBy && daysBetween(today, parseISO(x.d.renewal.expectedBy)) < 0))
+    .filter(x=>homeDesign()==='list' && x.st==='renewing' && x.d.renewal && x.d.renewal.expectedBy && daysBetween(today, parseISO(x.d.renewal.expectedBy)) < 0) // Timeline and Family show these already
     .sort((a,b)=>(a.d.values.expiry||'') < (b.d.values.expiry||'') ? -1 : 1);
   const syncN = syncNudgeHTML() + backupNudgeHTML();
   if(state.settings.summaryDismissed===todayIso && !syncN) return '';
-  if(!items.length && !calN && !calU && !syncN) return '';
+  if(!items.length && !syncN) return '';
   const line = ({d, st})=>{
     const p = profileById(d.ownerId); const days = daysBetween(today, parseISO(d.values.expiry));
     if(st==='renewing') return `<button class="sum-item" data-act="openDoc" data-id="${esc(d.id)}"><span class="dot st-renewing" style="background:currentColor"></span><span><b>${esc(docTitle(d))}</b>${ui.profile==='all'&&p?' · '+esc(p.name):''} renewal expected ${esc(fmtDate(d.renewal.expectedBy))}, not marked as received</span></button>`;
@@ -3690,12 +3917,10 @@ function summaryHTML(){
     return `<button class="sum-item" data-act="openDoc" data-id="${esc(d.id)}"><span class="dot st-${st}" style="background:currentColor"></span><span><b>${esc(docTitle(d))}</b>${ui.profile==='all'&&p?' · '+esc(p.name):''} ${esc(when)}</span></button>`;
   };
   return `<div class="summary" role="region" aria-label="Needs attention">
-    <div class="summary-head"><span><i class="ti ti-bell" aria-hidden="true"></i> ${items.length ? `${items.length} need${items.length===1?'s':''} attention` : syncN && !calN ? 'Sync' : 'Calendar'}</span>
+    <div class="summary-head"><span><i class="ti ti-bell" aria-hidden="true"></i> ${items.length ? `${items.length} need${items.length===1?'s':''} attention` : 'Needs attention'}</span>
       <button class="icon-btn" data-act="dismissSummary" aria-label="Hide for today"><i class="ti ti-x"></i></button></div>
     ${items.slice(0,3).map(line).join('')}${items.length>3?`<div class="muted" style="padding:2px 0 4px">and ${items.length-3} more below</div>`:''}
     ${syncN}
-    ${calN ? `<button class="sum-item cal" data-act="calAll"><i class="ti ti-calendar-plus" aria-hidden="true"></i><span>${calN} document${calN===1?' isn’t':'s aren’t'} up to date in your calendar. <u>Update calendar</u></span></button>` : ''}
-    ${calU ? `<button class="sum-item cal" data-act="calCheck"><i class="ti ti-calendar-question" aria-hidden="true"></i><span>${calU} document${calU===1?'’s':'s’'} reminders not confirmed in your calendar. <u>Check</u></span></button>` : ''}
   </div>`;
 }
 
@@ -4316,7 +4541,7 @@ async function rewrapSyncAuth(newPwd, skBytes){
    • after a failure: retried in 30 s, 2 min, 10 min, and as soon as the phone is back online */
 let _syncRetry = 0, _retryTimer = null, _syncWaiters = [];
 function syncPending(){ return !!syncCfg && syncCfg.localChangeSeq!==syncCfg.syncedSeq; }
-function noteLocalChange(){ if(!syncCfg) return; syncCfg.localChangeSeq = (syncCfg.localChangeSeq||0) + 1; saveSyncCfg(); scheduleAutoSync(); }
+function noteLocalChange(){ if(!syncCfg) return; syncCfg.localChangeSeq = (syncCfg.localChangeSeq||0) + 1; saveSyncCfg(); scheduleAutoSync(); updateSyncPill(); }
 function scheduleAutoSync(delay){
   if(!syncCfg || window.EXPIRY_NO_AUTOSYNC) return;
   clearTimeout(_autoTimer);
