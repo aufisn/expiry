@@ -766,6 +766,7 @@ const _plain = {}; // docId -> { fieldKey: decrypted value }
 function isRevealedFor(id){ return !!_skPriv && Date.now() < revealUntil && (revealScope===null || revealScope===id); }
 function anyRevealed(){ return !!_skPriv && Date.now() < revealUntil; }
 async function grantReveal(priv, docId){
+  if(_locked) return;
   _skPriv = priv;
   revealUntil = Date.now() + 60*1000;
   revealScope = state.settings.revealMode==='each' ? docId : null;
@@ -2469,6 +2470,7 @@ async function lockApp(){
   if((_syncing || syncPending()) && typeof settleSyncFor==='function'){
     _lockSettling = true;
     try{
+      if(_bioAbort){ try{ _bioAbort.abort(); }catch(e){} } _bioRun++; _bioInFlight = false; _bioAbort = null;
       hideReveal();
       // nothing readable or usable while the last changes upload: hide the app, sheets, viewer, toast and reveal bar
       document.documentElement.classList.add('is-locked');
@@ -2477,6 +2479,7 @@ async function lockApp(){
     if(_locked) return;
   }
   _locked = true;               // from here save() is a no-op
+  if(_bioAbort){ try{ _bioAbort.abort(); }catch(e){} } _bioRun++; _bioInFlight = false; _bioAbort = null;
   await flushSecureWrites();    // anything already queued still needs the key
   _sessionKey = null;
   hideReveal();
@@ -2576,8 +2579,8 @@ let _bioRun = 0, _bioAbort = null, _bioLastEnd = 0, _bioFailed = false;
 // manual (a tap): cancels any request still waiting (Android sometimes never answers one) and tries again.
 // automatic: only when nothing is running and the last attempt didn't just end (its own prompt hides the page).
 function bioBegin(manual){
-  if(_bioInFlight && !manual) return 0;
-  if(!manual && (_bioFailed || Date.now() - _bioLastEnd < 3000)) return 0;
+  if(_bioInFlight && manual!==true) return 0;
+  if(!manual && (_bioFailed || Date.now() - _bioLastEnd < 3000)) return 0; // manual: true (a tap) or 'sheet' (the user opened the reveal sheet)
   if(_bioAbort){ try{ _bioAbort.abort(); }catch(e){} }
   _bioInFlight = true;
   const run = ++_bioRun;
@@ -2618,14 +2621,51 @@ async function verifyAssertionSig(rec, resp){
   const k = await crypto.subtle.importKey('spki', unb64(rec.pubKey), { name:'RSASSA-PKCS1-v1_5', hash:'SHA-256' }, false, ['verify']);
   return crypto.subtle.verify('RSASSA-PKCS1-v1_5', k, sig, data);
 }
+// Android refuses a new fingerprint request while a cancelled one is still closing, and sometimes refuses a
+// request at once without asking for a finger. So: wait (briefly) for the previous request to close, and
+// retry once by itself when a request is refused within a moment of starting.
+let _bioPending = null, _bioLastError = '';
+const BIO_REFUSED_AT_ONCE_MS = 1000;
+function bioCancelled(){ const e = new Error('cancelled by a newer attempt'); e.name = 'AbortError'; return e; }
 async function bioAssert(rec){
   expectExternalUi();
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
-  const opts = { challenge, allowCredentials:[{ type:'public-key', id: unb64url(rec.credId) }], userVerification:'required', timeout:60000,
-    extensions:{ prf:{ eval:{ first: unb64(rec.prfSalt) } } } };
-  const ac = typeof AbortController==='function' ? new AbortController() : null;
+  _bioLastError = '';
+  const myRun = _bioRun;
+  // a cancel handle from the very start, so a newer tap can stop this attempt even while it waits
+  let ac = typeof AbortController==='function' ? new AbortController() : null;
   _bioAbort = ac;
-  const a = await navigator.credentials.get(ac ? { publicKey: opts, signal: ac.signal } : { publicKey: opts });
+  const stale = ()=>_bioRun!==myRun || !!(ac && ac.signal.aborted);
+  const waitFor = (p, ms)=>Promise.race([p || Promise.resolve(), new Promise(r=>setTimeout(r, ms))]);
+  const prev = _bioPending;                 // a request still closing from an earlier attempt
+  if(prev) await waitFor(prev, 1500);
+  if(stale()) throw bioCancelled();
+  let a, usedChallenge;
+  for(let attempt = 0; ; attempt++){
+    const challenge = crypto.getRandomValues(new Uint8Array(32));
+    const opts = { challenge, allowCredentials:[{ type:'public-key', id: unb64url(rec.credId) }], userVerification:'required', timeout:60000,
+      extensions:{ prf:{ eval:{ first: unb64(rec.prfSalt) } } } };
+    if(attempt > 0){ ac = typeof AbortController==='function' ? new AbortController() : null; _bioAbort = ac; }
+    const started = Date.now();
+    const req = navigator.credentials.get(ac ? { publicKey: opts, signal: ac.signal } : { publicKey: opts });
+    const settled = Promise.resolve(req).then(()=>{}, ()=>{});
+    _bioPending = settled;
+    try{ a = await req; usedChallenge = challenge; break; }
+    catch(e){
+      const ms = Date.now() - started;
+      if(!stale()) _bioLastError = (e && e.name || 'Error') + ', ' + (ms/1000).toFixed(1) + ' s'; // not from a replaced attempt
+      const refusedAtOnce = ms < BIO_REFUSED_AT_ONCE_MS && (e.name==='NotAllowedError' || e.name==='InvalidStateError');
+      if(refusedAtOnce && attempt===0 && !stale()){
+        await waitFor(prev, 1500);          // the earlier request may still be closing
+        await new Promise(r=>setTimeout(r, 500));
+        if(stale()) throw e;                // a newer attempt took over meanwhile
+        continue;
+      }
+      throw e;
+    }
+  }
+  if(stale()) throw bioCancelled();
+  if(!a.rawId || b64url(a.rawId) !== rec.credId) throw new Error('The fingerprint answer came from a different passkey.');
+  const challenge = usedChallenge;
   const cd = JSON.parse(new TextDecoder().decode(a.response.clientDataJSON));
   if(cd.type !== 'webauthn.get' || cd.challenge !== b64url(challenge) || cd.origin !== location.origin) throw new Error('The fingerprint response didn’t match this request.');
   if(!(new Uint8Array(a.response.authenticatorData)[32] & 0x04)) throw new Error('Your phone didn’t confirm your fingerprint.');
@@ -2710,7 +2750,7 @@ async function doBioUnlock(manual){
   }catch(e){
     if(!bioEnd(run, true)) return; // replaced by a newer tap: say nothing
     console.warn('Fingerprint unlock failed:', e);
-    const el = $('lock-error'); if(el) el.textContent = bioErrorText(e, 'Fingerprint unlock failed. Use your password.');
+    const el = $('lock-error'); if(el) el.textContent = bioErrorText(e, 'Fingerprint unlock failed. Use your password.') + (_bioLastError ? ' ('+_bioLastError+')' : '');
     const b = document.querySelector('#lock-screen [data-act="bioUnlock"]'); if(b) b.innerHTML = '<i class="ti ti-fingerprint" aria-hidden="true"></i>Try fingerprint again';
   }finally{ if(run===_bioRun && _bioInFlight) bioEnd(run); }
 }
@@ -2729,7 +2769,7 @@ function openRevealPrompt(docId){
       <div class="field"><label for="reveal-pw">Password</label><input id="reveal-pw" type="password" autocomplete="current-password"></div>
       <div class="err" id="reveal-err" role="alert"></div>
       <div class="actions"><button class="btn" data-act="back">Cancel</button><button class="btn${bioOn?'':' primary'}" data-act="revealPwd" data-id="${esc(docId)}">Unlock</button></div>`,
-    onShow:()=>{ _bioFailed = false; if(bioOn && document.visibilityState==='visible') revealWithBio(docId); else { const i = $('reveal-pw'); if(i) i.focus(); } },
+    onShow:()=>{ _bioFailed = false; if(bioOn && document.visibilityState==='visible') revealWithBio(docId, 'sheet'); else { const i = $('reveal-pw'); if(i) i.focus(); } },
   });
 }
 let _revealBusy = false;
@@ -2749,18 +2789,19 @@ async function revealWithPassword(docId){
 }
 async function revealWithBio(docId, manual){
   const rec = loadBio(); if(!rec || _revealBusy) return;
-  const run = bioBegin(!!manual); if(!run) return;
+  const run = bioBegin(manual==='sheet' ? 'sheet' : !!manual); if(!run) return;
   const err = $('reveal-err'); if(err) err.textContent = '';
   try{
     const out = await bioAssert(rec);
     if(run!==_bioRun) return;
     const priv = await importVaultPriv(new Uint8Array(await decryptWith(await prfToKey(out), rec.skWrap)));
+    if(run!==_bioRun || _locked) return; // locked (or replaced) while the key was being opened
     if(topEntry() && topEntry().reveal) pop();
     await grantReveal(priv, docId);
   }catch(e){
     if(!bioEnd(run, true)) return;
     console.warn('Fingerprint reveal failed:', e);
-    const el = $('reveal-err'); if(el) el.textContent = bioErrorText(e, 'Fingerprint didn’t work. Use your password.');
+    const el = $('reveal-err'); if(el) el.textContent = bioErrorText(e, 'Fingerprint didn’t work. Use your password.') + (_bioLastError ? ' ('+_bioLastError+')' : '');
     const b = document.querySelector('#sheet [data-act="revealBio"]'); if(b) b.innerHTML = '<i class="ti ti-fingerprint" aria-hidden="true"></i>Try fingerprint again';
   }finally{ if(run===_bioRun && _bioInFlight) bioEnd(run, false); markActive(); }
 }

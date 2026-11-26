@@ -23,7 +23,7 @@ async function prfOut(secret, salt){
   return await webcrypto.subtle.sign('HMAC', k, salt);
 }
 function makeAuthenticator(){
-  const a = { creds: {}, mode: 'ok', prf: true, calls: [] };
+  const a = { creds: {}, mode: 'ok', prf: true, calls: [], pending: 0, strictBusy: false, refuseNext: 0 };
   a.install = (w) => {
     w.PublicKeyCredential = { isUserVerifyingPlatformAuthenticatorAvailable: async () => true };
     Object.defineProperty(w.navigator, 'credentials', { configurable: true, value: {
@@ -38,11 +38,19 @@ function makeAuthenticator(){
         const ext = a.prf ? { prf: { enabled: true, results: { first: await prfOut(secret, publicKey.extensions.prf.eval.first) } } } : {};
         return { rawId: id.buffer, response: { getPublicKey: () => spki, getPublicKeyAlgorithm: () => -7 }, getClientExtensionResults: () => ext };
       },
-      async get({ publicKey, signal }){
+      async get(o){
+        // Android: a new request while the previous one is still closing is refused at once
+        if (a.strictBusy && a.pending > 0){ a.calls.push('get-busy'); const e = new Error('A request is already pending.'); e.name = 'InvalidStateError'; throw e; }
+        a.pending++;
+        try { return await a.getInner(o); } finally { a.pending--; }
+      }
+    } });
+    a.getInner = async ({ publicKey, signal }) => {
         a.calls.push('get');
-        if (a.mode === 'cancel'){ const e = new Error('cancelled'); e.name = 'NotAllowedError'; throw e; }
+        if (a.refuseNext > 0){ a.refuseNext--; const e = new Error('The operation either timed out or was not allowed.'); e.name = 'NotAllowedError'; throw e; }
+        if (a.mode === 'cancel'){ await new Promise(r => setTimeout(r, 1100)); const e = new Error('cancelled'); e.name = 'NotAllowedError'; throw e; } // a person takes a moment (longer than a refusal at once)
         // 'hang': the phone never answers (seen on Android after a failed fingerprint), until the app cancels it
-        if (a.mode === 'hang') await new Promise((res, rej) => { if (signal) signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; rej(e); }); });
+        if (a.mode === 'hang') await new Promise((res, rej) => { if (signal) signal.addEventListener('abort', () => { const e = new Error('aborted'); e.name = 'AbortError'; setTimeout(() => rej(e), a.strictBusy ? 300 : 0); }); }); // Android takes a moment to close the old prompt
         const c = a.creds[b64u(publicKey.allowCredentials[0].id)];
         if (!c) throw new Error('unknown credential');
         const cd = Buffer.from(JSON.stringify({ type: 'webauthn.get', challenge: b64u(publicKey.challenge), origin: a.mode === 'badOrigin' ? 'https://evil.example' : 'https://localhost' }));
@@ -51,9 +59,9 @@ function makeAuthenticator(){
         let sig = Buffer.from(await webcrypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, c.kp.privateKey, Buffer.concat([ad, hash])));
         if (a.mode === 'badSig') sig[5] ^= 0xff;
         const ext = { prf: { results: { first: await prfOut(c.secret, publicKey.extensions.prf.eval.first) } } };
-        return { response: { clientDataJSON: cd.buffer.slice(cd.byteOffset, cd.byteOffset + cd.length), authenticatorData: ad.buffer, signature: rawToDer(sig) }, getClientExtensionResults: () => ext };
-      }
-    } });
+        const rid = Buffer.from(publicKey.allowCredentials[0].id);
+        return { rawId: rid.buffer.slice(rid.byteOffset, rid.byteOffset + rid.length), response: { clientDataJSON: cd.buffer.slice(cd.byteOffset, cd.byteOffset + cd.length), authenticatorData: ad.buffer, signature: rawToDer(sig) }, getClientExtensionResults: () => ext };
+    };
   };
   return a;
 }
@@ -641,6 +649,55 @@ async function main(){
     auth.calls.length = 0;
     await a.click('[data-act="reveal"]'); await sleep(60);
     record('F3. Reveal goes straight to the fingerprint and reveals', auth.calls.includes('get') && /4242 4242 4242 4242/.test(a.text('#side-pane')));
+    // Android-like phone: the automatic request gets stuck, and a new one is refused while the old one is closing
+    a.ev('hideReveal()'); await sleep(10);
+    auth.strictBusy = true; auth.mode = 'hang'; auth.calls.length = 0; a.ev('_bioLastEnd = 0');
+    await a.click('[data-act="reveal"]'); await sleep(60);
+    record('F3a. (setup) the automatic request is stuck', a.ev('_bioInFlight') === true && auth.calls.includes('get'));
+    auth.mode = 'ok';
+    await a.click('#sheet [data-act="revealBio"]'); await a.waitFor(() => /4242 4242 4242 4242/.test(a.text('#side-pane')), 3000);
+    record('F3b. Reveal: tapping “Use fingerprint” after a stuck automatic request still works', /4242 4242 4242 4242/.test(a.text('#side-pane')) && !auth.calls.includes('get-busy'), auth.calls.join(','));
+    // the phone refuses the first request at once (no fingerprint asked): it's retried by itself, no error shown
+    a.ev('hideReveal()'); await sleep(10);
+    auth.refuseNext = 1; auth.calls.length = 0; a.ev('_bioLastEnd = 0');
+    await a.click('[data-act="reveal"]'); await a.waitFor(() => /4242 4242 4242 4242/.test(a.text('#side-pane')), 3000);
+    record('F3c. Reveal: a request refused at once is retried by itself', /4242 4242 4242 4242/.test(a.text('#side-pane')) && auth.calls.filter(c => c === 'get').length === 2, auth.calls.join(','));
+    // a real failure (wrong finger / cancelled) shows the reason and keeps the button
+    a.ev('hideReveal()'); await sleep(10);
+    auth.mode = 'cancel'; auth.calls.length = 0; a.ev('_bioLastEnd = 0');
+    await a.click('[data-act="reveal"]'); await sleep(1500);
+    record('F3d. Reveal: a real fingerprint failure explains it and offers “Try fingerprint again”', /not recognised or cancelled/.test(a.text('#reveal-err')) && /Try fingerprint again/.test(a.text('#sheet')), a.text('#reveal-err'));
+    auth.mode = 'ok'; auth.strictBusy = false;
+    await a.click('#sheet [data-act="revealBio"]'); await a.waitFor(() => /4242 4242 4242 4242/.test(a.text('#side-pane')), 3000);
+    record('F3e. …and a good fingerprint after that reveals', /4242 4242 4242 4242/.test(a.text('#side-pane')));
+    // two quick taps while the old request is still closing: one prompt, and the good fingerprint counts
+    a.ev('hideReveal()'); await sleep(10);
+    auth.strictBusy = true; auth.mode = 'hang'; auth.calls.length = 0; a.ev('_bioLastEnd = 0');
+    await a.click('[data-act="reveal"]'); await sleep(60);
+    auth.mode = 'ok';
+    await a.click('#sheet [data-act="revealBio"]'); await sleep(40);
+    await a.click('#sheet [data-act="revealBio"]');
+    await a.waitFor(() => /4242 4242 4242 4242/.test(a.text('#side-pane')), 4000); await sleep(400);
+    record('F3f. Two quick taps while the old request closes: revealed, no request refused as busy', /4242 4242 4242 4242/.test(a.text('#side-pane')) && !auth.calls.includes('get-busy') && !a.ev('_bioInFlight'), auth.calls.join(','));
+    // opening the sheet right after a fingerprint still asks for the fingerprint (not the password)
+    a.ev('hideReveal()'); await sleep(10);
+    auth.strictBusy = false; auth.calls.length = 0; a.ev('_bioLastEnd = Date.now()');
+    await a.click('[data-act="reveal"]'); await a.waitFor(() => /4242 4242 4242 4242/.test(a.text('#side-pane')), 3000);
+    record('F3g. Opening the unlock sheet right after a fingerprint still asks for the fingerprint', auth.calls.includes('get') && /4242 4242 4242 4242/.test(a.text('#side-pane')));
+    // a fingerprint answer from a different passkey is refused
+    a.ev('hideReveal()'); await sleep(10);
+    const realGet = a.w.navigator.credentials.get;
+    a.w.navigator.credentials.get = async (o) => { const r = await realGet.call(a.w.navigator.credentials, o); return Object.assign({}, r, { rawId: new Uint8Array([1,2,3]).buffer, response: r.response, getClientExtensionResults: r.getClientExtensionResults }); };
+    a.ev('_bioLastEnd = 0'); await a.click('[data-act="reveal"]'); await sleep(600);
+    record('F3h. An answer from a different passkey is refused', !/4242 4242 4242 4242/.test(a.text('#side-pane')) && /different passkey/.test(a.text('#reveal-err')));
+    a.w.navigator.credentials.get = realGet; await a.click('#sheet [data-act="back"]');
+    // a fingerprint that finishes after the app locked doesn't reveal anything
+    a.ev('hideReveal(); _bioLastEnd = 0'); await sleep(10);
+    auth.mode = 'hang'; auth.strictBusy = false;
+    await a.click('[data-act="reveal"]'); await sleep(60);
+    const lockP = a.w.eval('lockApp()'); auth.mode = 'cancel'; await lockP; await sleep(400); // lock screen's own prompt is left failing
+    record('F3i. A fingerprint request open when the app locks can’t reveal afterwards', a.ev('_locked') && a.ev('_skPriv === null') && a.ev('revealUntil === 0'), a.ev('JSON.stringify({l:_locked, sk:_skPriv===null})'));
+    auth.mode = 'ok';
     const snap = await a.snapshot();
     const b = await open({ storage: snap, auth });
     await sleep(350);
@@ -648,20 +705,20 @@ async function main(){
     for (const mode of ['badOrigin', 'noUV', 'badSig', 'cancel']){
       auth.mode = mode;
       const c = await open({ storage: snap, auth });
-      await sleep(350);
+      await sleep(mode === 'cancel' ? 1500 : 350); // a person takes a moment to cancel
       record(`F5. Fingerprint rejected when ${mode}`, c.visible('#lock-screen') && !c.visible('#app') && c.text('#lock-error').length > 0, c.text('#lock-error'));
     }
     // retries: a failed or stuck fingerprint never blocks another try
     auth.mode = 'cancel';
     const r1 = await open({ storage: snap, auth });
-    await sleep(350);
+    await sleep(1500);
     record('F7. After a failed fingerprint the lock screen offers “Try fingerprint again” and the password', /Try fingerprint again/.test(r1.text('#lock-screen')) && !!r1.$('#lock-input') && /not recognised or cancelled/.test(r1.text('#lock-error')));
     auth.calls.length = 0;
     r1.d.dispatchEvent(new r1.w.Event('visibilitychange')); await sleep(350);
     record('F8. It doesn’t pop the fingerprint up again by itself after a failure', !auth.calls.includes('get'));
     await r1.click('[data-act="bioUnlock"]'); await sleep(50);
-    await r1.click('[data-act="bioUnlock"]'); await sleep(50);
-    record('F9. Each tap tries again', auth.calls.filter(c => c === 'get').length === 2 && r1.visible('#lock-screen'));
+    await r1.click('[data-act="bioUnlock"]'); await sleep(3000);
+    record('F9. Each tap tries again (the second waits for the first to close)', auth.calls.filter(c => c === 'get').length === 2 && r1.visible('#lock-screen') && !r1.ev('_bioInFlight'), auth.calls.join(','));
     auth.mode = 'ok';
     await r1.click('[data-act="bioUnlock"]'); await r1.waitFor(() => r1.visible('#app'));
     record('F10. A later good fingerprint unlocks', r1.visible('#app'));
