@@ -172,6 +172,45 @@ async function revealWithPassword(a, pw = PW){
 }
 
 async function main(){
+  /* ================= automatic sync (no "Sync now" needed) ================= */
+  {
+    const G = makeGitHub();
+    const gid = G.create({ 'expiry-state.json': '{}' });
+    const S = await open({ gh: G });
+    await setup(S);
+    await S.click('[data-act="openSettings"]');
+    await S.type('#sync-gist', gid); await S.type('#sync-token', G.token);
+    await S.click('[data-act="syncConnect"]');
+    await S.waitFor(() => S.$('#pwd-in-0') && !S.ev('topEntry() && topEntry().busy'));
+    await S.type('#pwd-in-0', PW); await S.click('[data-act="pwdOk"]');
+    await S.waitFor(() => !S.ev('_syncing') && S.ev('!!(syncCfg && syncCfg.lastSyncedAt)'));
+    S.w.EXPIRY_NO_AUTOSYNC = false;
+    const patches = () => G.calls.filter(c => c.startsWith('PATCH')).length;
+    const change = (t) => S.ev(`state.settings.reminderTime = '${t}'; save();`);
+    let p0 = patches(); change('08:00');
+    record('SA1. A change is waiting, then goes up by itself within seconds', S.ev('syncPending()') && await S.waitFor(() => !S.ev('syncPending()') && patches() > p0, 8000));
+    // a change made while the upload is in flight is not marked as synced; it gets its own upload
+    let release; const gate = new Promise(r => release = r); const f0 = S.w.fetch;
+    S.w.fetch = async (url, o = {}) => { if ((o.method || '').toUpperCase() === 'PATCH' && gate){ await gate; } return f0(url, o); };
+    p0 = patches(); change('08:30');
+    await S.waitFor(() => S.ev('_syncing'), 8000); await S.waitFor(() => G.calls.length && S.ev('_syncing'), 2000); await sleep(50);
+    change('08:45'); release(); await S.waitFor(() => !S.ev('_syncing'), 4000);
+    record('SA2. A change made during an upload stays pending (not lost)', S.ev('syncPending()'));
+    S.w.fetch = f0;
+    record('SA3. …and is uploaded straight after', await S.waitFor(() => !S.ev('syncPending()') && !S.ev('_syncing'), 8000));
+    // locking (or "lock when I leave") first finishes the upload
+    p0 = patches(); change('09:15'); await S.w.eval('lockApp()');
+    record('SA4. Locking waits for the last change to upload, then locks', S.ev('_locked') && patches() > p0);
+    await unlock(S); await S.waitFor(() => !S.ev('_syncing'));
+    record('SA5. The uploaded change is there after unlocking', S.ev('state.settings.reminderTime') === '09:15' && !S.ev('syncPending()'));
+    // failure: retried automatically, and at once when the phone is back online
+    G.fail = 503; change('10:00'); await S.waitFor(() => S.ev('!!syncCfg.lastError'), 8000);
+    record('SA6. A failed upload keeps the change and plans a retry', S.ev('syncPending()') && S.ev('!!_retryTimer'));
+    G.fail = null; S.w.dispatchEvent(new S.w.Event('online'));
+    record('SA7. Back online: it uploads without a tap', await S.waitFor(() => !S.ev('syncPending()') && !S.ev('syncCfg.lastError'), 8000));
+    S.w.EXPIRY_NO_AUTOSYNC = true;
+  }
+
   /* ================= search survives the keyboard ================= */
   {
     const S = await open(); await setup(S);

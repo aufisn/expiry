@@ -2209,8 +2209,14 @@ async function finishUnlock(key){
   loadBackupDirName();
   return true;
 }
+let _lockSettling = false;
 async function lockApp(){
-  if(!lockRec || _locked) return;
+  if(!lockRec || _locked || _lockSettling) return;
+  if((_syncing || syncPending()) && typeof settleSync==='function'){
+    _lockSettling = true; hideReveal(); $('app').classList.add('hidden'); // nothing readable while the last changes upload
+    try{ await settleSync(15000); } finally { _lockSettling = false; }
+    if(_locked) return;
+  }
   _locked = true;               // from here save() is a no-op
   await flushSecureWrites();    // anything already queued still needs the key
   _sessionKey = null;
@@ -2219,7 +2225,7 @@ async function lockApp(){
   const sheets = nav.filter(e=>e.kind==='sheet');
   nav.length = 0; sheets.forEach(e=>{ if(e.onClose) try{ e.onClose(); }catch(x){} });
   discardPending(draft); dropUrls(); stopCamera(); stopReader();
-  syncCfg = null; clearTimeout(_autoTimer);
+  syncCfg = null; clearTimeout(_autoTimer); clearTimeout(_retryTimer);
   draft = null; pdraft = null; tdraft = null; lastSheetEntry = null; renderSheet();
   state = emptyState();
   $('list-pane').innerHTML = ''; $('side-pane').innerHTML = ''; lastSideEntry = undefined;
@@ -4178,11 +4184,11 @@ async function syncNow(opts){
     const files = await syncFiles(base.documents);
     if(!files || _locked || syncCfg!==cfg) return { ok:false };
     save();
-    const pushed = syncableState(state);
+    const pushed = syncableState(state), seqPushed = cfg.localChangeSeq;
     await gh('PATCH', '/gists/'+encodeURIComponent(cfg.gistId), { files:{ [STATE_FILE]:{ content: await makeEnvelope(pushed) } } });
     if(_locked || syncCfg!==cfg) return { ok:false };
-    cfg.baseState = pushed; cfg.lastSyncedAt = new Date().toISOString(); cfg.syncedSeq = cfg.localChangeSeq;
-    cfg.pendingConflicts = 0; cfg.authDirty = false; cfg.lastError = '';
+    cfg.baseState = pushed; cfg.lastSyncedAt = new Date().toISOString(); cfg.syncedSeq = seqPushed;
+    cfg.pendingConflicts = 0; _syncRetry = 0; cfg.authDirty = false; cfg.lastError = '';
     saveSyncCfg();
     _syncNote = '';
     renderNav(true);
@@ -4196,9 +4202,12 @@ async function syncNow(opts){
     if(syncCfg===cfg){ cfg.lastError = e.message; saveSyncCfg(); }
     _syncNote = '';
     if(opts.interactive) toast(e.message);
+    retryAutoSync();
     return { ok:false, error:e.message };
   }finally{
     _syncing = false; renderSyncBits();
+    if(syncCfg && !_locked && syncCfg.localChangeSeq!==syncCfg.syncedSeq && !syncCfg.pendingConflicts && !syncCfg.lastError) scheduleAutoSync(2000);
+    const w = _syncWaiters; _syncWaiters = []; w.forEach(f=>f());
   }
 }
 function askConflicts(conflicts){
@@ -4300,19 +4309,43 @@ async function rewrapSyncAuth(newPwd, skBytes){
   saveSyncCfg(); scheduleAutoSync(1000);
 }
 
-/* ----- automatic sync: shortly after changes, on unlock, and on return after 15 minutes ----- */
+/* ----- automatic sync: you never need to press "Sync now" -----
+   • a few seconds after any change (several quick edits go up together)
+   • straight away when you leave the app, before "lock when I leave" wipes the keys
+   • on unlock and on return: at once if changes are waiting, otherwise after 15 minutes away
+   • after a failure: retried in 30 s, 2 min, 10 min, and as soon as the phone is back online */
+let _syncRetry = 0, _retryTimer = null, _syncWaiters = [];
+function syncPending(){ return !!syncCfg && syncCfg.localChangeSeq!==syncCfg.syncedSeq; }
 function noteLocalChange(){ if(!syncCfg) return; syncCfg.localChangeSeq = (syncCfg.localChangeSeq||0) + 1; saveSyncCfg(); scheduleAutoSync(); }
 function scheduleAutoSync(delay){
   if(!syncCfg || window.EXPIRY_NO_AUTOSYNC) return;
   clearTimeout(_autoTimer);
-  _autoTimer = setTimeout(()=>{ if(syncCfg && !_locked && !_syncing && syncCfg.localChangeSeq!==syncCfg.syncedSeq) syncNow({ interactive:false }); }, delay || 20000);
+  _autoTimer = setTimeout(()=>{ if(syncCfg && !_locked && !_syncing && syncPending()) syncNow({ interactive:false }); }, delay || 4000);
+}
+function retryAutoSync(){
+  if(!syncCfg || window.EXPIRY_NO_AUTOSYNC || _locked) return;
+  const waits = [30000, 120000, 600000];
+  clearTimeout(_retryTimer);
+  _retryTimer = setTimeout(()=>{ if(syncCfg && !_locked && !_syncing) syncNow({ interactive:false }); }, waits[Math.min(_syncRetry++, waits.length-1)]);
 }
 function maybeAutoSyncOnOpen(){
   if(!syncCfg || window.EXPIRY_NO_AUTOSYNC || _locked) return;
+  if(syncPending()){ scheduleAutoSync(1000); return; }
   const last = syncCfg.lastSyncedAt ? Date.parse(syncCfg.lastSyncedAt) : 0;
   if(Date.now() - last > 15*60000) setTimeout(()=>syncNow({ interactive:false }), 1500);
 }
-document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') maybeAutoSyncOnOpen(); });
+// Wait (up to maxMs) for a sync that is running or waiting to run, so locking doesn't cut it off.
+function settleSync(maxMs){
+  if(!syncCfg || window.EXPIRY_NO_AUTOSYNC || _locked) return Promise.resolve();
+  if(!_syncing && !syncPending()) return Promise.resolve();
+  if(!_syncing){ clearTimeout(_autoTimer); syncNow({ interactive:false }); }
+  return new Promise(res=>{ const t = setTimeout(res, maxMs||15000); _syncWaiters.push(()=>{ clearTimeout(t); res(); }); });
+}
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible') maybeAutoSyncOnOpen();
+  else if(syncPending() && !_locked && !_syncing && !window.EXPIRY_NO_AUTOSYNC){ clearTimeout(_autoTimer); syncNow({ interactive:false }); }
+});
+window.addEventListener('online', ()=>{ if(syncCfg && !_locked && (syncPending() || syncCfg.lastError)){ _syncRetry = 0; scheduleAutoSync(1000); } });
 
 /* ----- UI bits ----- */
 function syncStatusText(){
