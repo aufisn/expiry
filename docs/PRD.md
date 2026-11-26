@@ -143,6 +143,13 @@ replacing the app's encryption or Gist sync.
 - FR-5.5 Logs record counts and ids only, never labels.
 - FR-5.6 Telegram bot chats aren't end-to-end encrypted: this is why labels never carry more than type,
   person and date.
+- FR-5.7 (security review 2026-11-26) Sending labels the Worker and Telegram can read is an exception to
+  "only encrypted data leaves the phone". Before building E1, Salim approves it in his own words and it is
+  recorded in DESIGN.md §5; otherwise the **Generic** label becomes the default. The Worker access code is
+  stored on the phone only inside the encrypted state.
+  **Approved by Salim, 2026-11-27:** “Telegram should show what is expiring and when. It should not show
+  document numbers or images.” So the default label is **Type and person** with the expiry date; reference
+  numbers, issuers, notes and images never leave the phone unencrypted.
 
 **Reliability and limits**
 - FR-6.1 If Telegram can't be reached, messages wait in a queue in D1 and are sent on the next run.

@@ -202,7 +202,9 @@ async function main(){
     // B: timeline
     const tl = H.text('#timeline');
     record(`HD6 (${tag}). Timeline: to-do for the expired visa and the overdue renewal`, /Renew Siham’s visa/.test(tl) && /renewal is overdue/.test(tl), tl.slice(0, 300));
-    record(`HD7 (${tag}). Timeline: the next 12 months by month; nothing from 2031`, /December 2026/.test(tl) && /Ahmed’s passport/.test(tl) && /June 2027/.test(tl) && !/2031/.test(tl), tl.slice(0, 600));
+    record(`HD7 (${tag}). Timeline: one entry per document on its expiry date (no reminder dates); nothing from 2031`, /April 2027/.test(H.text('#timeline')) && /June 2027/.test(tl) && /Ahmed’s passport/.test(tl) && /Expires in 7 months/.test(tl) && !/December 2026/.test(tl) && !/Reminder/.test(tl) && !/2031/.test(tl) && H.$$('#timeline .tl-item').length === 2, tl.slice(0, 600));
+    const days = H.$$('#timeline .tl-item .tl-day b').map(b => b.textContent).join(',');
+    record(`HD7b (${tag}). The day shown is the expiry day`, days === '19,26', days);
     await H.click('[data-act="tlMode"][data-m="all"]');
     record(`HD8 (${tag}). Timeline → All documents shows the full list with counters`, !!H.$('#doc-list') && !!H.$('.counters') && /National ID/.test(H.text('#doc-list')));
     // C: family
@@ -214,9 +216,22 @@ async function main(){
     record(`HD11 (${tag}). A document opens from there`, /Expired on/.test(H.text('#side-pane')));
     await H.click(width < 720 ? '#side-pane .phone-only[data-act="back"]' : '#side-pane .wide-only[data-act="back"]');
     record(`HD12 (${tag}). Back returns to that person's list`, /Siham’s documents/.test(H.text('#side-pane')));
+    // a deleted person's page says so (and adding doesn't pick them)
+    H.ev(`state.profiles.find(p=>p.id==='ah').deleted = true; push({kind:'pane', screen:'person', id:'ah'});`); await sleep(5);
+    record(`HD14 (${tag}). A deleted person's page says they no longer exist`, /no longer exists/.test(H.text('#side-pane')) && H.ev('defaultOwnerId()') !== 'ah');
+    H.ev(`state.profiles.find(p=>p.id==='ah').deleted = false;`);
     H.ev('closeAllPanes()'); await sleep(5);
     await H.click('#list-pane button.link-btn[data-act="familyList"]');
     record(`HD13 (${tag}). “All documents” shows the list, with a way back to the family`, !!H.$('#doc-list') && !!H.$('[data-act="familyHome"]'));
+    // expiring today: plain wording
+    H.ev(`docById('r1').values.expiry = '2026-11-06'; save(); renderHome();`);
+    await H.click('[data-act="openDoc"][data-id="r1"]');
+    record(`HD15 (${tag}). Expiring today reads “Expires today”, not “in Today”`, /Expires today/.test(H.text('#side-pane')) && !/in Today/.test(H.text('#side-pane')));
+    H.ev('closeAllPanes()');
+    // Timeline tab works while a search is typed
+    H.ev(`state.settings.homeDesign = 'timeline'; ui.tlAll = true; ui.searchOpen = true; ui.search = 'pass'; renderHome();`);
+    await H.click('[data-act="tlMode"][data-m="timeline"]');
+    record(`HD16 (${tag}). Tapping Timeline while searching shows the timeline`, !!H.$('#timeline') && H.ev('ui.search') === '');
   }
 
   /* ================= automatic sync (no "Sync now" needed) ================= */
@@ -250,6 +265,26 @@ async function main(){
     record('SA4. Locking waits for the last change to upload, then locks', S.ev('_locked') && patches() > p0);
     await unlock(S); await S.waitFor(() => !S.ev('_syncing'));
     record('SA5. The uploaded change is there after unlocking', S.ev('state.settings.reminderTime') === '09:15' && !S.ev('syncPending()'));
+    // while the lock waits for the upload, everything (sheets, viewer, toast) is hidden
+    let release2; const gate2 = new Promise(r => release2 = r); const f1 = S.w.fetch;
+    S.w.fetch = async (url, o = {}) => { if ((o.method || '').toUpperCase() === 'PATCH'){ await gate2; } return f1(url, o); };
+    const pBefore = patches(); change('09:20'); S.ev(`openSheet({ render:()=>'<h3>Open sheet</h3>' })`);
+    const lockP = S.w.eval('lockApp()'); await sleep(30);
+    record('SA4b. During the lock wait the app, sheets and toast are hidden', S.d.documentElement.classList.contains('is-locked') && !S.ev('_locked'));
+    change('09:25'); // an edit while that upload is in flight
+    release2(); await lockP; S.w.fetch = f1;
+    record('SA4c. The lock also waits for an edit made during the upload (two uploads before locking)', S.ev('_locked') && patches() - pBefore === 2, patches() - pBefore);
+    await unlock(S); await S.waitFor(() => !S.ev('_syncing'));
+    record('SA4d. …so it was on GitHub before locking', S.ev('state.settings.reminderTime') === '09:25');
+    // offline: locking doesn't wait 15 s
+    Object.defineProperty(S.w.navigator, 'onLine', { configurable: true, get: () => false });
+    change('09:30'); const t0 = Date.now(); await S.w.eval('lockApp()');
+    record('SA4e. Offline with a change waiting: locks at once (no 15 s blank screen)', S.ev('_locked') && Date.now() - t0 < 2000, Date.now() - t0 + ' ms');
+    Object.defineProperty(S.w.navigator, 'onLine', { configurable: true, get: () => true });
+    await unlock(S); await S.waitFor(() => !S.ev('syncPending()') && !S.ev('_syncing'), 8000);
+    // nothing changed: no new upload (no new Gist revision)
+    const pp = patches(); await S.w.eval('syncNow({interactive:false})');
+    record('SA4f. A sync with nothing to send doesn’t upload', patches() === pp && S.ev('!syncCfg.lastError'));
     // failure: retried automatically, and at once when the phone is back online
     G.fail = 503; change('10:00'); await S.waitFor(() => S.ev('!!syncCfg.lastError'), 8000);
     record('SA6. A failed upload keeps the change and plans a retry', S.ev('syncPending()') && S.ev('!!_retryTimer'));

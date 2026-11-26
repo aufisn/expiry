@@ -14,7 +14,7 @@ Next enhancements (phase 2) are specified in `docs/PRD.md` (E1: Telegram reminde
 Status: design agreed 2026-11-06. **M1–M9 built** (records, profiles, Fold layouts, app lock,
 fingerprint, sensitive vault, auto-lock, encrypted photos and PDFs, scanning and reading details,
 calendar reminders and Home summary, renew flow and History, encrypted GitHub sync, backups,
-type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you, Start fresh for Google Calendar, search keeps the keyboard open, fully automatic sync, three Home designs (List · Timeline · Family) chosen in Settings; 362 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
+type and field editor, optional document title, list sorted by expiry → type → title, images locked for every type, fingerprint retries, image viewer arrows on the image + swipe, Home calendar view, calendar files confirmed by you, Start fresh for Google Calendar, search keeps the keyboard open, fully automatic sync, three Home designs (List · Timeline · Family) chosen in Settings; 375 jsdom checks, `npm test`). Live at aufisn.github.io/expiry; next: test on the Fold.
 
 M2 notes (decisions made while building):
 - The app lock is **required** in Expiry (optional in Mandoos): setup asks for a password (8+ characters)
@@ -306,6 +306,11 @@ After saving, if the calendar can't replace old events, the app lists which old 
 Both DEK and SK are random AES-256-GCM keys stored only in wrapped form; changing the password
 re-wraps them without re-encrypting data.
 
+**Exception approved for Telegram reminders (PRD E1, 2026-11-27):** the reminder list sent to the
+Expiry Worker, and the Telegram messages, carry readable labels (document type, person, expiry date).
+Salim: “Telegram should show what is expiring and when. It should not show document numbers or images.”
+Numbers, issuers, notes and images are never included.
+
 ### Storage on the phone
 - Small state: `localStorage` with `expiry_`-prefixed keys (the origin is shared with Mandoos on
   GitHub Pages), as encrypted `{__enc, iv, ct}` envelopes.
@@ -447,8 +452,11 @@ A change made during an upload stays pending and gets its own upload.
 - Unfolded: the empty right pane is a family overview (person cards, status); in the Family design it lists
   what needs action.
 - List: as before, plus the month calendar button.
-- Timeline: Timeline | All documents switch; to-do card (expired, overdue renewals); next 12 months of
-  reminders, expiries and follow-ups by month.
+- Timeline: Timeline | All documents switch; to-do card (expired, overdue renewals); then one entry per
+  document on its **expiry date** for the next 12 months, by month (amber when inside its reminder window,
+  green otherwise); a renewal in progress shows once, on its expected date. Reminder dates are the
+  calendar's internal rule and don't appear (corrected 2026-11-27).
+- Home design follows you to every device (synced setting), like the theme.
 - Family: a card per person (counts, next item); a person's documents open as their own screen (`person`
   pane; documents opened from it stack on top so Back returns to the person); "All N documents" shows the list.
 - Not yet checked on the Fold.

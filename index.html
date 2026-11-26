@@ -11,7 +11,7 @@
 <script>try{ if(localStorage.getItem('expiry_lock_v1')) document.documentElement.classList.add('is-locked'); }catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.50.0/dist/tabler-icons.min.css" rel="stylesheet">
 <style>
   :root{
     --bg:#F5F1E8; --surface:#FFFFFF; --surface-2:#FBF8F1;
@@ -90,7 +90,7 @@
   .tl-item.sel{background:var(--surface-2); border-radius:10px;}
   .tl-day{width:40px; text-align:center; flex:none;} .tl-day b{display:block; font-size:18px; font-weight:600; line-height:1.1;} .tl-day small{font-size:11px; color:var(--text-3);}
   .tl-body{flex:1; min-width:0; border-left:3px solid var(--text-3); padding-left:10px;}
-  .tl-body.k-expiry{border-color:var(--red);} .tl-body.k-reminder{border-color:var(--amber);} .tl-body.k-followup{border-color:var(--blue);}
+  .tl-body.k-soon{border-color:var(--amber);} .tl-body.k-valid{border-color:var(--green);} .tl-body.k-followup{border-color:var(--blue);}
   .tl-title{font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;} .tl-sub{font-size:12px; color:var(--text-2);}
   .person{display:block; width:100%; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; margin:0 0 10px;}
   .person.sel{box-shadow:0 0 0 2px var(--accent);}
@@ -823,7 +823,7 @@ function homeDocs(){
 /* ---------- Home design: list (A) · timeline (B) · family (C), chosen in Settings ---------- */
 const HOME_DESIGNS = [
   ['list', 'List', 'ti-list-details', 'Every document by status: needs action, in progress, valid.'],
-  ['timeline', 'Timeline', 'ti-timeline-event', 'A to-do card, then every reminder and expiry for the next 12 months.'],
+  ['timeline', 'Timeline', 'ti-timeline-event', 'A to-do card, then what expires in the next 12 months, month by month.'],
   ['family', 'Family', 'ti-users-group', 'A card per person with their counts and what’s next.'],
 ];
 function homeDesign(){ const v = state.settings && state.settings.homeDesign; return HOME_DESIGNS.some(x=>x[0]===v) ? v : 'list'; }
@@ -866,10 +866,22 @@ function syncPillHTML(){
   const s = syncState(); if(!s) return '';
   return `<button id="sync-pill" class="sync-pill sp-${s.cls}" data-act="syncPill" title="${esc(s.long)}" aria-label="${esc(s.long)}"><i class="ti ti-${s.icon}" aria-hidden="true"></i><span class="lbl">${esc(s.short)}</span><span class="lbl-long">${esc(s.long)}</span></button>`;
 }
-function updateSyncPill(){ const el = $('sync-pill'); if(el) el.outerHTML = syncPillHTML(); }
+function syncLineHTML(id, okText){
+  const s = syncState(); if(!s) return '';
+  return `<div class="cal-line ${s.cls==='green'?'ok':s.cls==='blue'?'':'warn'}" id="${id}"><i class="ti ti-${s.icon}" aria-hidden="true"></i><span>${s.cls==='green'?esc(okText):esc(s.long)}</span></div>`;
+}
+function updateSyncBits(){
+  const el = $('sync-pill'); if(el) el.outerHTML = syncPillHTML();
+  const dl = $('doc-sync-line'); if(dl) dl.outerHTML = syncLineHTML('doc-sync-line', 'Saved and synced');
+  const ol = $('ov-sync-line'); if(ol) ol.outerHTML = syncLineHTML('ov-sync-line', 'All changes saved and synced');
+  const st = $('sync-status'); if(st) st.textContent = _syncNote || syncStatusText();
+}
+function updateSyncPill(){ updateSyncBits(); }
 // Calendar out of date: its own strip, not hidden by the summary's X; it goes away once you update.
+let _calMemo = null; // set for the length of one Home redraw
+function calCounts(){ return _calMemo || { n: calNeedsUpdate().length, u: calUnconfirmed().length }; }
 function calendarStripHTML(){
-  const calN = calNeedsUpdate().length, calU = calUnconfirmed().length;
+  const { n:calN, u:calU } = calCounts();
   let h = '';
   if(calN) h += `<button class="home-strip amber" data-act="calAll"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar out of date for ${calN} document${calN===1?'':'s'}</span><u>Update</u></button>`;
   if(calU) h += `<button class="home-strip amber" data-act="calCheck"><i class="ti ti-calendar-question" aria-hidden="true"></i><span>${calU} document${calU===1?'’s':'s’'} reminders not confirmed in your calendar</span><u>Check</u></button>`;
@@ -908,21 +920,25 @@ function familyCardsHTML(opts){
   const selId = topPane() && topPane().screen==='person' ? topPane().id : null;
   return activeProfiles().map(p=>personCardHTML(p, all.filter(x=>x.d.ownerId===p.id), Object.assign({ sel: selId===p.id }, opts||{}))).join('');
 }
-// Timeline (B): every reminder, expiry and renewal follow-up in the next 12 months.
+// Timeline (B): one entry per document on its EXPIRY date, for the next 12 months. Reminder dates are the
+// calendar's (and later Telegram's) internal rule, so they don't appear here. A renewal in progress shows
+// once, on the date the new document is expected.
 function timelineEvents(all){
   const today = todayDate(), end = shiftDate(today, 12, 'months'), out = [];
   const inRange = iso=>{ const dt = parseISO(iso); return dt && daysBetween(today, dt) >= 0 && daysBetween(dt, end) >= 0; };
   for(const {d, st} of all){
-    if(st==='archived') continue;
+    if(st==='archived' || st==='expired') continue; // expired ones are in the to-do card
     const who = ownerPossessive(d) + ' ' + docTitleInline(d);
     if(st==='renewing'){
-      if(d.renewal && d.renewal.expectedBy && inRange(d.renewal.expectedBy)) out.push({ date:d.renewal.expectedBy, kind:'followup', d, title:who+' renewal', sub:'Renewal expected · check it has arrived' });
+      if(d.renewal && d.renewal.expectedBy && inRange(d.renewal.expectedBy)) out.push({ date:d.renewal.expectedBy, kind:'followup', d, title:who+' renewal', sub:'New one expected · check it has arrived' });
       continue;
     }
-    for(const r of reminderDates(d)) if(inRange(r.date)) out.push({ date:r.date, kind:'reminder', d, title:who, sub:`Reminder · expires ${fmtDate(d.values.expiry)} (${r.lead} before)` });
-    if(d.values.expiry && inRange(d.values.expiry)) out.push({ date:d.values.expiry, kind:'expiry', d, title:who, sub:'Expires' });
+    if(d.values.expiry && inRange(d.values.expiry)){
+      const left = timeLeftWords(d.values.expiry, today);
+      out.push({ date:d.values.expiry, kind:st, d, title:who, sub: left==='Today' ? 'Expires today' : 'Expires in '+left });
+    }
   }
-  return out.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.kind==='expiry'?1:-1));
+  return out.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.title<b.title?-1:a.title>b.title?1:0));
 }
 function timelineHTML(all, sel){
   const today = todayDate();
@@ -941,7 +957,7 @@ function timelineHTML(all, sel){
     html += `<button class="tl-item${sel===e.d.id?' sel':''}" data-act="openDoc" data-id="${esc(e.d.id)}"><div class="tl-day"><b>${dt.getDate()}</b><small>${esc(wfmt.format(dt))}</small></div>
       <div class="tl-body k-${e.kind}"><div class="tl-title">${esc(e.title.charAt(0).toUpperCase()+e.title.slice(1))}</div><div class="tl-sub">${esc(e.sub)}</div></div></button>`;
   }
-  if(!evs.length) html += `<div class="empty"><div>Nothing is due in the next 12 months.</div><button class="link-btn" data-act="tlMode" data-m="all">See all documents</button></div>`;
+  if(!evs.length) html += `<div class="empty"><div>Nothing expires in the next 12 months.</div><button class="link-btn" data-act="tlMode" data-m="all">See all documents</button></div>`;
   else html += `<button class="link-btn" data-act="tlMode" data-m="all" style="margin-top:10px">All documents, including later ones</button>`;
   return html;
 }
@@ -951,8 +967,8 @@ function overviewPaneHTML(){
   if(!state.documents.length) return `<div class="empty" style="padding-top:30vh"><i class="ti ti-file-search" aria-hidden="true"></i><h3>Select a document</h3><div>Its details, reminders and scans show here.</div></div>`;
   const s = syncState();
   const status = `<div class="sec-title">Status</div><div class="card">
-      ${s ? `<div class="cal-line ${s.cls==='green'?'ok':s.cls==='blue'?'':'warn'}" style="padding:8px 0"><i class="ti ti-${s.icon}" aria-hidden="true"></i><span>${s.cls==='green'?'All changes saved and synced':esc(s.long)}</span></div>` : `<div class="cal-line" style="padding:8px 0"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>GitHub sync is off</span><button class="mini-btn" data-act="openSettings">Settings</button></div>`}
-      ${calNeedsUpdate().length ? `<div class="cal-line warn" style="padding:8px 0"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar: ${calNeedsUpdate().length} document(s) changed</span><button class="mini-btn" data-act="calAll">Update</button></div>` : `<div class="cal-line ok" style="padding:8px 0"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Calendar up to date</span></div>`}</div>`;
+      ${s ? syncLineHTML('ov-sync-line', 'All changes saved and synced') : `<div class="cal-line"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>GitHub sync is off</span><button class="mini-btn" data-act="openSettings">Settings</button></div>`}
+      ${calCounts().n ? `<div class="cal-line warn"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar: ${calCounts().n} document${calCounts().n===1?'':'s'} changed</span><button class="mini-btn" data-act="calAll">Update</button></div>` : `<div class="cal-line ok"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Calendar up to date</span></div>`}</div>`;
   if(homeDesign()==='family'){
     const needs = all.filter(x=>x.st==='expired'||x.st==='soon'||renewalOverdue(x.d)).sort((a,b)=>compareDocs(a.d,b.d));
     return `<div class="topbar"><h2>Needs action</h2></div>
@@ -961,7 +977,7 @@ function overviewPaneHTML(){
   return `<div class="topbar"><h2>Your family</h2></div>${attentionStripHTML(all)}${familyCardsHTML({ act:'filterProfile' })}${status}`;
 }
 function personPaneHTML(entry){
-  const p = profileById(entry.id); if(!p) return paneTop('Not found') + `<div class="empty">This person no longer exists.</div>`;
+  const p = profileById(entry.id); if(!p || p.deleted) return paneTop('Not found') + `<div class="empty">This person no longer exists.</div>`;
   const today = todayDate();
   const docs = state.documents.filter(d=>d.ownerId===p.id).map(d=>({ d, st:docStatus(d, today) })).sort((a,b)=>compareDocs(a.d,b.d));
   const live = docs.filter(x=>x.st!=='archived');
@@ -981,6 +997,7 @@ function renderHome(){
   const profiles = activeProfiles();
   const sel = topPane() && topPane().screen==='detail' ? topPane().id : null;
   const design = homeDesign();
+  _calMemo = null; _calMemo = calCounts();
   const row = x=>docRowHTML(x, { sel });
   const sortByExpiry = (a,b)=> compareDocs(a.d, b.d);
   let list = all.filter(x=>x.st!=='archived');
@@ -1053,7 +1070,8 @@ function renderHome(){
     ${main}
     <div class="fab-wrap"><button class="fab" data-act="openAdd"><i class="ti ti-plus" aria-hidden="true"></i>Add</button></div>`;
   if(ui.searchOpen && ui._focusSearch){ ui._focusSearch = false; const s = $('search-input'); if(s){ s.focus(); } }
-  if(!topPane()) renderSide(null); // keep the unfolded overview current
+  if(!topPane() && layoutMode()!=='phone' && !ui._typingSearch) renderSide(null); // keep the unfolded overview current
+  _calMemo = null;
 }
 
 /* ---------- Home: month calendar of expiry dates ---------- */
@@ -1164,7 +1182,7 @@ function renderDetail(entry){
       <div style="flex:1;min-width:0"><div class="sub" style="margin:0">${[docTitle(d)!==t.name?esc(t.name):'', subtitle].filter(Boolean).join(' · ')}</div></div>
       <span class="badge st-${st}">${esc(st==='archived'||st==='renewing'?STATUS_LABEL[st]:STATUS_LABEL[st]+' · '+timeLeftLabel(d.values.expiry, today))}</span></div>
     ${st==='expired' ? `<div class="doc-prompt expired"><i class="ti ti-alert-circle" aria-hidden="true"></i><span>Expired on ${esc(fmtDateLong(d.values.expiry))}. Renew it, or archive it if it’s no longer needed.</span></div>`
-      : st==='soon' ? `<div class="doc-prompt soon"><i class="ti ti-clock-exclamation" aria-hidden="true"></i><span>Expires on ${esc(fmtDateLong(d.values.expiry))}, in ${esc(timeLeftWords(d.values.expiry, today))}. Start the renewal now.</span></div>` : ''}
+      : st==='soon' ? `<div class="doc-prompt soon"><i class="ti ti-clock-exclamation" aria-hidden="true"></i><span>${timeLeftWords(d.values.expiry, today)==='Today' ? `Expires today (${esc(fmtDateLong(d.values.expiry))}). Renew it now.` : `Expires on ${esc(fmtDateLong(d.values.expiry))}, in ${esc(timeLeftWords(d.values.expiry, today))}. Start the renewal now.`}</span></div>` : ''}
     <div class="actions top">${st==='expired'||st==='soon'
       ? `<button class="btn primary" data-act="renew" data-id="${esc(d.id)}"><i class="ti ti-refresh" aria-hidden="true"></i>Renew</button><button class="btn" data-act="editDoc" data-id="${esc(d.id)}"><i class="ti ti-edit" aria-hidden="true"></i>Edit</button>`
       : `<button class="btn" data-act="renew" data-id="${esc(d.id)}"><i class="ti ti-refresh" aria-hidden="true"></i>Renew</button><button class="btn primary" data-act="editDoc" data-id="${esc(d.id)}"><i class="ti ti-edit" aria-hidden="true"></i>Edit</button>`}</div>
@@ -1181,7 +1199,7 @@ function renderDetail(entry){
       : (remRows || '<div class="kv"><span class="muted">No reminders</span></div>')}</div>
     ${allPassed && st!=='expired' && st!=='archived' && st!=='renewing' ? `<div class="muted">All reminder dates have passed, so your calendar gets one reminder tomorrow instead.</div>`:''}
     ${calStatusHTML(d)}
-    ${(()=>{ const s = syncState(); return s ? `<div class="cal-line ${s.cls==='green'?'ok':s.cls==='blue'?'':'warn'}"><i class="ti ti-${s.icon}" aria-hidden="true"></i><span>${s.cls==='green'?'Saved and synced':esc(s.long)}</span></div>` : ''; })()}
+    ${syncLineHTML('doc-sync-line', 'Saved and synced')}
     <div class="sec-title">History</div>
     ${historyListHTML(d)}`;
 }
@@ -1828,7 +1846,7 @@ function openAddSheet(){
     <button class="opt" data-act="addMethod" data-m="manual"><i class="ti ti-keyboard" aria-hidden="true"></i><div><div class="opt-t">Enter manually</div><div class="opt-s">Type the details in</div></div></button>` });
 }
 function defaultOwnerId(){
-  const tp = topPane(); if(tp && tp.screen==='person' && profileById(tp.id)) return tp.id; // adding from a person's list
+  const tp = topPane(); if(tp && tp.screen==='person' && profileById(tp.id) && !profileById(tp.id).deleted) return tp.id; // adding from a person's list
   if(ui.profile!=='all' && profileById(ui.profile)) return ui.profile;
   const self = activeProfiles().find(p=>p.isSelf) || activeProfiles()[0];
   return self ? self.id : null;
@@ -1867,7 +1885,7 @@ const ACT = {
   openDoc: el=>openDocFromList(el.dataset.id),
   syncPill: ()=>{ if(syncCfg && (syncCfg.lastError || syncCfg.pendingConflicts)) syncNow({ interactive:true }); else ACT.openSettings(); },
   homeDesign: el=>{ state.settings.homeDesign = el.dataset.v; ui.familyList = false; ui.tlAll = false; save(); const p = topPane(); if(p) renderSide(p); renderHome(); },
-  tlMode: el=>{ ui.tlAll = el.dataset.m==='all'; if(!ui.tlAll){ ui.status = null; ui.date = null; } renderHome(); },
+  tlMode: el=>{ ui.tlAll = el.dataset.m==='all'; if(!ui.tlAll){ ui.status = null; ui.date = null; ui.search = ''; ui.searchOpen = false; } renderHome(); },
   familyList: ()=>{ ui.familyList = true; renderHome(); },
   familyHome: ()=>{ ui.familyList = false; ui.profile = 'all'; ui.status = null; ui.date = null; renderHome(); },
   showNeeds: ()=>{ ui.profile = 'all'; ui.status = null; ui.date = null; if(homeDesign()==='timeline') ui.tlAll = true; if(homeDesign()==='family') ui.familyList = true; setHomeView('list'); renderHome(); const l = $('list-pane'); if(l) l.scrollTop = 0; },
@@ -2126,7 +2144,7 @@ document.addEventListener('keydown', e=>{
 });
 function renderHomeKeepSearchFocus(){
   const s = $('search-input'); const pos = s ? s.selectionStart : null;
-  renderHome();
+  ui._typingSearch = true; try{ renderHome(); } finally { ui._typingSearch = false; }
   const n = $('search-input'); if(n){ n.focus(); try{ if(pos!=null) n.setSelectionRange(pos,pos); }catch(e){} }
 }
 
@@ -2439,9 +2457,14 @@ async function finishUnlock(key){
 let _lockSettling = false;
 async function lockApp(){
   if(!lockRec || _locked || _lockSettling) return;
-  if((_syncing || syncPending()) && typeof settleSync==='function'){
-    _lockSettling = true; hideReveal(); $('app').classList.add('hidden'); // nothing readable while the last changes upload
-    try{ await settleSync(15000); } finally { _lockSettling = false; }
+  if((_syncing || syncPending()) && typeof settleSyncFor==='function'){
+    _lockSettling = true;
+    try{
+      hideReveal();
+      // nothing readable or usable while the last changes upload: hide the app, sheets, viewer, toast and reveal bar
+      document.documentElement.classList.add('is-locked');
+      await settleSyncFor(15000);
+    } finally { _lockSettling = false; }
     if(_locked) return;
   }
   _locked = true;               // from here save() is a no-op
@@ -3899,7 +3922,6 @@ function calStatusHTML(d){
 function summaryHTML(){
   if(state.settings.summaryOnOpen===false) return '';
   const today = todayDate(), todayIso = toISO(today);
-  const calN = calNeedsUpdate().length, calU = calUnconfirmed().length;
   const items = state.documents.filter(d=>(ui.profile==='all' || d.ownerId===ui.profile))
     .map(d=>({ d, st:docStatus(d, today) }))
     .filter(x=>homeDesign()==='list' && x.st==='renewing' && x.d.renewal && x.d.renewal.expectedBy && daysBetween(today, parseISO(x.d.renewal.expectedBy)) < 0) // Timeline and Family show these already
@@ -4360,13 +4382,13 @@ async function syncFiles(baseDocs){
       if(a.hasThumb){ const t = await idbGet(a.id+':t'); if(t) files[FILE_THUMB] = { content: await fileForGist(t) }; }
       const g = await gh('POST', '/gists', { description:'Expiry: encrypted file (do not edit)', public:false, files });
       a.remote = g.id; up++;
-    } else if(!rec && a.remote){
+    } else if(!rec && a.remote && !(a.missing && Date.now() - (a.missingAt||0) < 86400000)){
       try{
         const g = await gh('GET', '/gists/'+a.remote);
         await storeFromGist(a.id, await ghFileText(g.files[FILE_MAIN]));
         if(g.files[FILE_THUMB]) await storeFromGist(a.id+':t', await ghFileText(g.files[FILE_THUMB]));
         down++;
-      }catch(e){ if(e.status===404){ a.missing = true; continue; } throw e; }
+      }catch(e){ if(e.status===404){ a.missing = true; a.missingAt = Date.now(); continue; } throw e; }
     } else if(a.syncSkipped) skipped++;
   }
   return { up, down, removed, skipped };
@@ -4375,9 +4397,10 @@ async function syncFiles(baseDocs){
 /* ----- sync ----- */
 async function syncNow(opts){
   opts = opts || {};
-  if(_syncing || !syncCfg || _locked) return { ok:false };
-  if(!opts.interactive && typeof navigator.onLine==='boolean' && !navigator.onLine) return { ok:false };
-  _syncing = true; _syncNote = 'Syncing…'; renderSyncBits();
+  if(_syncing) return { ok:false };
+  if(!syncCfg || _locked || (!opts.interactive && typeof navigator.onLine==='boolean' && !navigator.onLine)){ releaseSyncWaiters(); return { ok:false }; }
+  _syncing = true; _syncNote = 'Syncing…'; updateSyncBits();
+  let redrawn = false;
   const cfg = syncCfg;
   try{
     const gist = await gh('GET', '/gists/'+encodeURIComponent(cfg.gistId));
@@ -4410,13 +4433,14 @@ async function syncNow(opts){
     if(!files || _locked || syncCfg!==cfg) return { ok:false };
     save();
     const pushed = syncableState(state), seqPushed = cfg.localChangeSeq;
-    await gh('PATCH', '/gists/'+encodeURIComponent(cfg.gistId), { files:{ [STATE_FILE]:{ content: await makeEnvelope(pushed) } } });
+    const same = text && text!=='{}' && !cfg.authDirty && !files.up && deepEqual(pushed, remote);
+    if(!same) await gh('PATCH', '/gists/'+encodeURIComponent(cfg.gistId), { files:{ [STATE_FILE]:{ content: await makeEnvelope(pushed) } } });
     if(_locked || syncCfg!==cfg) return { ok:false };
     cfg.baseState = pushed; cfg.lastSyncedAt = new Date().toISOString(); cfg.syncedSeq = seqPushed;
-    cfg.pendingConflicts = 0; _syncRetry = 0; cfg.authDirty = false; cfg.lastError = '';
+    cfg.pendingConflicts = 0; _syncRetry = 0; clearTimeout(_retryTimer); cfg.authDirty = false; cfg.lastError = '';
     saveSyncCfg();
     _syncNote = '';
-    renderNav(true);
+    renderNav(true); redrawn = true;
     if(opts.interactive){
       const bits = []; if(files.up) bits.push(files.up+' file'+(files.up===1?'':'s')+' uploaded'); if(files.down) bits.push(files.down+' downloaded'); if(files.skipped) bits.push(files.skipped+' too large to sync');
       toast('Synced' + (bits.length ? ' · ' + bits.join(' · ') : ''));
@@ -4430,9 +4454,10 @@ async function syncNow(opts){
     retryAutoSync();
     return { ok:false, error:e.message };
   }finally{
-    _syncing = false; renderSyncBits();
+    _syncing = false;
+    if(redrawn) updateSyncBits(); else renderSyncBits();
     if(syncCfg && !_locked && syncCfg.localChangeSeq!==syncCfg.syncedSeq && !syncCfg.pendingConflicts && !syncCfg.lastError) scheduleAutoSync(2000);
-    const w = _syncWaiters; _syncWaiters = []; w.forEach(f=>f());
+    releaseSyncWaiters();
   }
 }
 function askConflicts(conflicts){
@@ -4539,7 +4564,8 @@ async function rewrapSyncAuth(newPwd, skBytes){
    • straight away when you leave the app, before "lock when I leave" wipes the keys
    • on unlock and on return: at once if changes are waiting, otherwise after 15 minutes away
    • after a failure: retried in 30 s, 2 min, 10 min, and as soon as the phone is back online */
-let _syncRetry = 0, _retryTimer = null, _syncWaiters = [];
+let _syncRetry = 0, _retryTimer = null, _openTimer = null, _syncWaiters = [];
+function releaseSyncWaiters(){ const w = _syncWaiters; _syncWaiters = []; w.forEach(f=>f()); }
 function syncPending(){ return !!syncCfg && syncCfg.localChangeSeq!==syncCfg.syncedSeq; }
 function noteLocalChange(){ if(!syncCfg) return; syncCfg.localChangeSeq = (syncCfg.localChangeSeq||0) + 1; saveSyncCfg(); scheduleAutoSync(); updateSyncPill(); }
 function scheduleAutoSync(delay){
@@ -4557,20 +4583,38 @@ function maybeAutoSyncOnOpen(){
   if(!syncCfg || window.EXPIRY_NO_AUTOSYNC || _locked) return;
   if(syncPending()){ scheduleAutoSync(1000); return; }
   const last = syncCfg.lastSyncedAt ? Date.parse(syncCfg.lastSyncedAt) : 0;
-  if(Date.now() - last > 15*60000) setTimeout(()=>syncNow({ interactive:false }), 1500);
+  if(Date.now() - last > 15*60000){ clearTimeout(_openTimer); _openTimer = setTimeout(()=>syncNow({ interactive:false }), 1500); }
 }
 // Wait (up to maxMs) for a sync that is running or waiting to run, so locking doesn't cut it off.
 function settleSync(maxMs){
   if(!syncCfg || window.EXPIRY_NO_AUTOSYNC || _locked) return Promise.resolve();
   if(!_syncing && !syncPending()) return Promise.resolve();
+  if(!_syncing && typeof navigator.onLine==='boolean' && !navigator.onLine) return Promise.resolve(); // offline: nothing to wait for
+  const p = new Promise(res=>{ const t = setTimeout(res, maxMs||15000); _syncWaiters.push(()=>{ clearTimeout(t); res(); }); });
   if(!_syncing){ clearTimeout(_autoTimer); syncNow({ interactive:false }); }
-  return new Promise(res=>{ const t = setTimeout(res, maxMs||15000); _syncWaiters.push(()=>{ clearTimeout(t); res(); }); });
+  return p;
+}
+// Keep waiting (within one time budget) until nothing is pending: an edit made during an upload goes up too.
+// Stops early when offline, after a failure, or when a conflict needs the user.
+async function settleSyncFor(maxMs){
+  const end = Date.now() + maxMs;
+  while(syncCfg && !_locked && (_syncing || syncPending()) && Date.now() < end){
+    if(!_syncing && (syncCfg.pendingConflicts || (typeof navigator.onLine==='boolean' && !navigator.onLine))) break;
+    const errBefore = syncCfg.lastError;
+    await settleSync(end - Date.now());
+    if(!_syncing && syncCfg && syncCfg.lastError && syncPending()) break; // failed again: don't hold the lock any longer
+    if(errBefore && syncCfg && syncCfg.lastError===errBefore && syncPending()) break;
+  }
 }
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState==='visible') maybeAutoSyncOnOpen();
   else if(syncPending() && !_locked && !_syncing && !window.EXPIRY_NO_AUTOSYNC){ clearTimeout(_autoTimer); syncNow({ interactive:false }); }
 });
-window.addEventListener('online', ()=>{ if(syncCfg && !_locked && (syncPending() || syncCfg.lastError)){ _syncRetry = 0; scheduleAutoSync(1000); } });
+window.addEventListener('online', ()=>{
+  if(!syncCfg || _locked || window.EXPIRY_NO_AUTOSYNC) return;
+  if(syncPending()){ _syncRetry = 0; scheduleAutoSync(1000); }
+  else if(syncCfg.lastError){ _syncRetry = 0; clearTimeout(_retryTimer); _retryTimer = setTimeout(()=>syncNow({ interactive:false }), 1000); } // clears the red pill
+});
 
 /* ----- UI bits ----- */
 function syncStatusText(){
