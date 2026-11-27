@@ -224,6 +224,14 @@ async function main(){
     record(`HD11 (${tag}). A document opens from there`, /Expired on/.test(H.text('#side-pane')));
     await H.click(width < 720 ? '#side-pane .phone-only[data-act="back"]' : '#side-pane .wide-only[data-act="back"]');
     record(`HD12 (${tag}). Back returns to that person's list`, /Siham’s documents/.test(H.text('#side-pane')));
+    // redrawing the open screen (e.g. after a sync) keeps the scroll position; a new screen starts at the top
+    await H.click('[data-act="openSettings"]');
+    let tops = 0; const sp = H.$('#side-pane'); sp.scrollTo = () => { tops++; }; const wst = H.w.scrollTo; H.w.scrollTo = () => { tops++; };
+    H.ev('renderSide(topPane()); renderSyncBits && renderNav(true)'); await sleep(5);
+    record(`HD17 (${tag}). Settings redrawn in place (sync finished): not pushed back to the top`, tops === 0, tops);
+    await H.click('#side-pane [data-act="openProfiles"]');
+    record(`HD18 (${tag}). Opening another screen still starts at the top`, tops > 0);
+    H.w.scrollTo = wst; delete sp.scrollTo; H.ev('closeAllPanes()'); await sleep(5);
     // a deleted person's page says so (and adding doesn't pick them)
     H.ev(`state.profiles.find(p=>p.id==='ah').deleted = true; push({kind:'pane', screen:'person', id:'ah'});`); await sleep(5);
     record(`HD14 (${tag}). A deleted person's page says they no longer exist`, /no longer exists/.test(H.text('#side-pane')) && H.ev('defaultOwnerId()') !== 'ah');

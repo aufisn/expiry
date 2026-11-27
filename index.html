@@ -1137,8 +1137,10 @@ function paneTop(title, opts){
                : `<button class="icon-btn wide-only" data-act="closePanes" aria-label="Close"><i class="ti ti-x"></i></button>`);
   return `<div class="topbar">${back}<h2>${esc(title)}</h2>${opts.right||''}</div>`;
 }
+let _sideShown = null; // the pane entry last drawn in the side pane
 function renderSide(entry){
   const el = $('side-pane'); if(!el) return;
+  const keepY = el.scrollTop, keepWinY = window.scrollY || 0;
   let html;
   if(!entry) html = overviewPaneHTML();
   else if(entry.screen==='person') html = personPaneHTML(entry);
@@ -1153,8 +1155,13 @@ function renderSide(entry){
   else html = '';
   el.innerHTML = `<div class="side-inner${html.indexOf('editor-split')>=0?' wide-split':''}">${html}</div>`;
   hydrateTiles(el);
-  if(entry && el.scrollTo) try{ el.scrollTo(0,0); }catch(e){}
-  if(entry && entry.kind==='pane' && window.innerWidth<720) try{ window.scrollTo(0,0); }catch(e){}
+  // a fresh screen starts at the top; redrawing the screen you're on (sync finished, a setting changed) keeps your place
+  if(entry && entry===_sideShown){ try{ el.scrollTop = keepY; if(window.innerWidth<720 && keepWinY && Math.abs((window.scrollY||0) - keepWinY) > 1) window.scrollTo(0, keepWinY); }catch(e){} }
+  else {
+    if(entry && el.scrollTo) try{ el.scrollTo(0,0); }catch(e){}
+    if(entry && entry.kind==='pane' && window.innerWidth<720) try{ window.scrollTo(0,0); }catch(e){}
+  }
+  _sideShown = entry;
 }
 
 /* ---------- detail ---------- */
@@ -2489,7 +2496,7 @@ async function lockApp(){
   syncCfg = null; clearTimeout(_autoTimer); clearTimeout(_retryTimer);
   draft = null; pdraft = null; tdraft = null; lastSheetEntry = null; renderSheet();
   state = emptyState();
-  $('list-pane').innerHTML = ''; $('side-pane').innerHTML = ''; lastSideEntry = undefined;
+  $('list-pane').innerHTML = ''; $('side-pane').innerHTML = ''; lastSideEntry = undefined; _sideShown = null;
   document.body.classList.remove('pane-open');
   $('toast').classList.add('hidden');
   if(trapArmed) scheduleDisarm();
