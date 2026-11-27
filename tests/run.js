@@ -210,7 +210,7 @@ async function main(){
     // B: timeline
     const tl = H.text('#timeline');
     record(`HD6 (${tag}). Timeline: to-do for the expired visa and the overdue renewal`, /Renew Siham’s visa/.test(tl) && /renewal is overdue/.test(tl), tl.slice(0, 300));
-    record(`HD7 (${tag}). Timeline: one entry per document on its expiry date (no reminder dates); nothing from 2031`, /April 2027/.test(H.text('#timeline')) && /June 2027/.test(tl) && /Ahmed’s passport/.test(tl) && /Expires in 7 months/.test(tl) && !/December 2026/.test(tl) && !/Reminder/.test(tl) && !/2031/.test(tl) && H.$$('#timeline .tl-item').length === 2, tl.slice(0, 600));
+    record(`HD7 (${tag}). Timeline: one entry per document on its expiry date (no reminder dates); nothing from 2031`, /April 2027/.test(H.text('#timeline')) && /June 2027/.test(tl) && /Passport/.test(tl) && /Ahmed · Expires in 7 months/.test(tl) && !/Your |Ahmed’s/.test(H.$$('#timeline .tl-title').map(e=>e.textContent).join('|')) && !/December 2026/.test(tl) && !/Reminder/.test(tl) && !/2031/.test(tl) && H.$$('#timeline .tl-item').length === 2, tl.slice(0, 600));
     const days = H.$$('#timeline .tl-item .tl-day b').map(b => b.textContent).join(',');
     record(`HD7b (${tag}). The day shown is the expiry day`, days === '19,26', days);
     await H.click('[data-act="tlMode"][data-m="all"]');
@@ -649,6 +649,7 @@ async function main(){
     auth.calls.length = 0;
     await a.click('[data-act="reveal"]'); await sleep(60);
     record('F3. Reveal goes straight to the fingerprint and reveals', auth.calls.includes('get') && /4242 4242 4242 4242/.test(a.text('#side-pane')));
+    record('F3s. A reveal covers only the document unlocked; any other document asks again', a.ev('isRevealedFor(state.documents[0].id) && !isRevealedFor("another-doc")'));
     // Android-like phone: the automatic request gets stuck, and a new one is refused while the old one is closing
     a.ev('hideReveal()'); await sleep(10);
     auth.strictBusy = true; auth.mode = 'hang'; auth.calls.length = 0; a.ev('_bioLastEnd = 0');

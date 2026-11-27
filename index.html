@@ -732,7 +732,7 @@ let lastSideEntry = undefined;
 function renderNav(force){
   const pane = topPane();
   // "ask every time": leaving the revealed document (other than to edit it) hides it again
-  if(revealScope){
+  if(revealScope && state.settings.revealMode==='each'){
     const cur = pane && (pane.screen==='detail' ? pane.id : (pane.screen==='edit' && draft ? draft.id : null));
     if(cur!==revealScope) hideReveal();
   }
@@ -769,7 +769,7 @@ async function grantReveal(priv, docId){
   if(_locked) return;
   _skPriv = priv;
   revealUntil = Date.now() + 60*1000;
-  revealScope = state.settings.revealMode==='each' ? docId : null;
+  revealScope = docId || null; // only the document you unlocked; any other document asks again
   clearInterval(revealTick); revealTick = setInterval(updateRevealBar, 1000);
   if(docId) await decryptDoc(docId);
   updateRevealBar(); rerenderRevealables();
@@ -798,7 +798,7 @@ function updateRevealBar(){
   const left = Math.ceil((revealUntil - Date.now())/1000);
   if(left <= 0 || !_skPriv){ hideReveal(); return; }
   const bar = $('reveal-bar');
-  bar.innerHTML = `<i class="ti ti-eye" aria-hidden="true"></i><span>Revealed · hides in ${Math.floor(left/60)}:${pad(left%60)}</span><button data-act="hideReveal">Hide now</button>`;
+  bar.innerHTML = `<i class="ti ti-eye" aria-hidden="true"></i><span>${revealScope && docById(revealScope) ? esc(docTitle(docById(revealScope)))+' revealed' : 'Revealed'} · hides in ${Math.floor(left/60)}:${pad(left%60)}</span><button data-act="hideReveal">Hide now</button>`;
   bar.classList.remove('hidden');
   document.body.classList.add('revealing');
 }
@@ -934,14 +934,14 @@ function timelineEvents(all){
   const inRange = iso=>{ const dt = parseISO(iso); return dt && daysBetween(today, dt) >= 0 && daysBetween(dt, end) >= 0; };
   for(const {d, st} of all){
     if(st==='archived' || st==='expired') continue; // expired ones are in the to-do card
-    const who = ownerPossessive(d) + ' ' + docTitleInline(d);
+    const p = profileById(d.ownerId), who = ui.profile==='all' && p && !p.isSelf ? p.name+' · ' : '';
     if(st==='renewing'){
-      if(d.renewal && d.renewal.expectedBy && inRange(d.renewal.expectedBy)) out.push({ date:d.renewal.expectedBy, kind:'followup', d, title:who+' renewal', sub:'New one expected · check it has arrived' });
+      if(d.renewal && d.renewal.expectedBy && inRange(d.renewal.expectedBy)) out.push({ date:d.renewal.expectedBy, kind:'followup', d, title:docTitle(d)+' renewal', sub:who+'New one expected · check it has arrived' });
       continue;
     }
     if(d.values.expiry && inRange(d.values.expiry)){
       const left = timeLeftWords(d.values.expiry, today);
-      out.push({ date:d.values.expiry, kind:st, d, title:who, sub: left==='Today' ? 'Expires today' : 'Expires in '+left });
+      out.push({ date:d.values.expiry, kind:st, d, title:docTitle(d), sub: who + (left==='Today' ? 'Expires today' : 'Expires in '+left) });
     }
   }
   return out.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.title<b.title?-1:a.title>b.title?1:0));
@@ -1503,7 +1503,7 @@ function renderSettings(){
       <div class="row-title">Sensitive info</div>
       <p class="sub">Card numbers and, later, ID and card images need your fingerprint or password each time you reveal them.</p>
       <div class="chips">
-        <button class="chip${rm==='window'?' on':''}" data-act="revealMode" data-m="window">Reveal for 60 seconds</button>
+        <button class="chip${rm==='window'?' on':''}" data-act="revealMode" data-m="window">60 seconds, that document only</button>
         <button class="chip${rm==='each'?' on':''}" data-act="revealMode" data-m="each">Ask every time</button>
       </div>
     </div>
@@ -1736,7 +1736,6 @@ function validateTypeDraft(td){
 // fields of the saved type, without editor bookkeeping
 function cleanFields(fields){ return fields.map(f=>{ const c = Object.assign({}, f); delete c._old; return c; }); }
 async function vaultPrivForChange(labels){
-  if(_skPriv && anyRevealed()) return _skPriv;
   let kek = null;
   const ok = await askPassword({ title:'Confirm your password',
     message:'Needed to stop protecting '+labels.map(l=>'“'+l+'”').join(', ')+'. Its values will then show without your fingerprint or password.',
