@@ -111,8 +111,11 @@
   .set-sec.on{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent);}
   .set-sec > .ti:first-child{font-size:22px; color:var(--accent); width:28px; text-align:center; flex:none;}
   .set-sec b{display:block; font-weight:600;} .set-sec small{display:block; color:var(--text-2); font-size:12px; margin-top:2px;}
-  .set-sec .ti-chevron-right{color:var(--text-3);}
-  .set-grid{display:block;} .set-nav-title{display:none;}
+  .set-sec .ti-chevron-down,.set-sec .ti-chevron-up{color:var(--text-3); font-size:20px;}
+  .set-acc{margin:0 0 8px;} .set-acc .set-sec{margin:0;}
+  .set-acc.open .set-sec{border-bottom-left-radius:0; border-bottom-right-radius:0; background:var(--surface-2);}
+  .set-acc.open .set-sec .ti-chevron-up{color:var(--accent);}
+  .set-acc-body{border:1px solid var(--border); border-top:none; border-radius:0 0 var(--radius) var(--radius); padding:10px 10px 2px; background:var(--bg);}
   .danger-title{color:var(--red);}
   .design-opt{display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin:6px 0;}
   .design-opt.on{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent);}
@@ -357,11 +360,6 @@
     .side-inner.wide-split{max-width:1240px;}
     body.wide-editor #app,body.wide-editor.pane-open #app{grid-template-columns:minmax(0,1fr);}
     body.wide-editor #list-pane{display:none;}
-    body.wide-settings #app,body.wide-settings.pane-open #app{grid-template-columns:minmax(0,1fr);}
-    body.wide-settings #list-pane{display:none;}
-    body.wide-settings .side-inner{max-width:1100px;}
-    .set-grid{display:grid; grid-template-columns:minmax(260px,320px) minmax(0,1fr); gap:24px; align-items:start;}
-    .set-grid .set-nav{position:sticky; top:8px;}
     .editor-split{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start;}
     .split-left{display:block; position:sticky; top:8px;}
     .phone-only{display:none !important;}
@@ -756,7 +754,6 @@ function renderNav(force){
   }
   // Check details for a scan takes the whole inner screen when unfolded: image left, fields right
   document.body.classList.toggle('wide-editor', !!(pane && pane.screen==='edit' && wideEditorOn()));
-  document.body.classList.toggle('wide-settings', !!(pane && pane.screen==='settings'));
   renderSheet();
   renderHome();
 }
@@ -1084,7 +1081,6 @@ function renderHomeInner(){
       ${syncPillHTML()}
       ${hasAny && design==='list' ? `<button class="icon-btn" data-act="toggleView" aria-label="${ui.view==='calendar'?'Show list':'Show calendar'}" title="${ui.view==='calendar'?'List view':'Calendar view'}"><i class="ti ti-${ui.view==='calendar'?'list':'calendar-month'}"></i></button>` : ''}
       <button class="icon-btn" data-act="toggleSearch" aria-label="Search"><i class="ti ti-search"></i></button>
-      <button class="icon-btn" data-act="openProfiles" aria-label="Profiles"><i class="ti ti-users"></i></button>
       <button class="icon-btn" data-act="openSettings" aria-label="Settings"><i class="ti ti-settings"></i></button>
     </div>
     ${ui.searchOpen?`<input class="search" id="search-input" type="search" placeholder="Search documents" value="${esc(ui.search)}" data-bind="search" autocomplete="off">`:''}
@@ -1509,8 +1505,11 @@ function settingsSummary(k){
   if(k==='data'){ const last = state.settings.lastBackupAt; return `${syncCfg ? syncStatusText() : 'GitHub sync off'} · ${last ? 'backup '+fmtDate(last.slice(0,10)) : 'no backup yet'}`; }
   return '';
 }
-function settingsNavHTML(cur){
-  return SETTINGS_SECTIONS.map(([k,l,ic])=>`<button class="set-sec${cur===k?' on':''}" data-act="settingsSection" data-s="${k}"${cur===k?' aria-current="true"':''}><i class="ti ${ic}" aria-hidden="true"></i><span style="flex:1;min-width:0"><b>${l}</b><small>${esc(settingsSummary(k))}</small></span><i class="ti ti-chevron-right" aria-hidden="true"></i></button>`).join('');
+// sections the user has opened; they stay open until closed (kept in memory only)
+const settingsOpen = new Set();
+function settingsAccordionHTML(){
+  return SETTINGS_SECTIONS.map(([k,l,ic])=>{ const o = settingsOpen.has(k);
+    return `<div class="set-acc${o?' open':''}" id="set-${k}"><button class="set-sec" data-act="settingsSection" data-s="${k}" aria-expanded="${o}" aria-controls="set-body-${k}"><i class="ti ${ic}" aria-hidden="true"></i><span style="flex:1;min-width:0"><b>${l}</b><small>${esc(settingsSummary(k))}</small></span><i class="ti ti-chevron-${o?'up':'down'}" aria-hidden="true"></i></button>${o ? `<div class="set-acc-body" id="set-body-${k}">${settingsSectionHTML(k)}</div>` : ''}</div>`; }).join('');
 }
 function settingsSectionHTML(k){
   const th = state.settings.theme, rm = state.settings.revealMode;
@@ -1610,19 +1609,13 @@ function settingsSectionHTML(k){
     <button class="row" data-act="eraseAll"><i class="ti ti-trash" aria-hidden="true" style="color:var(--red)"></i><div class="row-main"><div class="row-title" style="color:var(--red)">Erase all data on this device</div><div class="row-sub">Removes Expiry’s data from this device only</div></div></button>`;
   return '';
 }
-// Settings: five sections. Folded: the five rows, each section on its own page.
-// Unfolded: Settings takes the whole screen, sections on the left and the chosen one on the right.
-function renderSettings(entry){
-  const wide = window.innerWidth >= 720, k = entry && entry.section;
-  const footer = `<p class="muted" style="margin-top:20px">Expiry ${esc(APP_VERSION)}</p>`;
-  if(wide){
-    const cur = k || 'people', name = (SETTINGS_SECTIONS.find(x=>x[0]===cur)||[])[1] || '';
-    return paneTop('Settings') + `<div class="set-grid"><nav class="set-nav" aria-label="Settings sections">${settingsNavHTML(cur)}${footer}</nav>
-      <div class="set-body"><h2 class="set-body-title" style="font-size:18px;margin:6px 0 10px">${esc(name)}</h2>${settingsSectionHTML(cur)}</div></div>`;
-  }
-  if(!k) return paneTop('Settings') + settingsNavHTML(null) + footer;
-  const name = (SETTINGS_SECTIONS.find(x=>x[0]===k)||[])[1] || 'Settings';
-  return paneTop(name) + settingsSectionHTML(k);
+// Settings: five drop-down sections on one screen. A tap opens a section, another tap closes it;
+// several can be open. Unfolded it sits in the right-hand pane and works the same as folded.
+function renderSettings(){
+  return paneTop('Settings') + settingsAccordionHTML() + `<p class="muted" style="margin-top:20px">Expiry ${esc(APP_VERSION)}</p>`;
+}
+function showSettingsSection(k){
+  setTimeout(()=>{ const el = $('set-'+k); if(el && el.scrollIntoView) try{ el.scrollIntoView({block:'start'}); }catch(e){} }, 0);
 }
 /* ---------- document types and fields editor (M9) ----------
    A type is edited as a working copy (tdraft) and applied on Save. Saving can change stored data:
@@ -2136,13 +2129,17 @@ const ACT = {
   deleteProfile: el=>deleteProfileFlow(el.dataset.id),
   openSettings: el=>{
     const section = el && el.dataset && el.dataset.s || null, top = topPane();
-    if(top && top.screen==='settings' && !section) return;
-    const entry = {kind:'pane', screen:'settings', section};
+    if(section && SETTINGS_SECTIONS.some(x=>x[0]===section)) settingsOpen.add(section); // e.g. the sync pill opens Settings with "Your data" open
+    if(top && top.screen==='settings'){ if(section){ renderSide(top); showSettingsSection(section); } return; }
+    const entry = {kind:'pane', screen:'settings'};
     if(window.innerWidth>=720 && top && top.screen!=='edit' && top.screen!=='profile-edit') replaceTop(entry); else push(entry);
+    if(section) showSettingsSection(section);
   },
   settingsSection: el=>{
-    const entry = {kind:'pane', screen:'settings', section:el.dataset.s};
-    if(window.innerWidth>=720) replaceTop(entry); else push(entry);
+    const k = el.dataset.s; if(!SETTINGS_SECTIONS.some(x=>x[0]===k)) return;
+    if(settingsOpen.has(k)) settingsOpen.delete(k); else settingsOpen.add(k);
+    const top = topPane(); if(top && top.screen==='settings') renderSide(top);
+    const b = document.querySelector(`#side-pane [data-act="settingsSection"][data-s="${k}"]`); if(b) try{ b.focus({preventScroll:true}); }catch(e){} // keep focus on the row just tapped
   },
   openTypes: ()=>push({kind:'pane', screen:'types'}),
   editType: el=>{ const t = state.types.find(x=>x.id===el.dataset.id); if(!t) return; tdraft = typeDraftFrom(t); push({kind:'pane', screen:'type-edit'}); },

@@ -136,7 +136,7 @@ async function open({ width = 400, today = '2026-11-06', storage = null, auth = 
     keepCal: false,
     findInSettings: async (sel) => {
       for (const k of ['people','reminders','look','security','data']){
-        while (w.eval('topPane() && topPane().screen==="settings" && !!topPane().section && innerWidth < 720')) { w.eval('goBack()'); await sleep(2); }
+        if (w.eval('settingsOpen.has(' + JSON.stringify(k) + ')')) continue;
         w.eval('ACT.settingsSection({ dataset:{ s:' + JSON.stringify(k) + ' } })'); await sleep(3);
         const el = d.querySelector(sel); if (el) return el;
       }
@@ -216,8 +216,15 @@ async function main(){
     if (width >= 720) record('HD3 (unfolded). Nothing open: the right side shows each person with counts', /Your family/.test(H.text('#side-pane')) && H.$$('#side-pane .person').length === 3 && /1 expired/.test(H.text('#side-pane')));
     // Settings: choose the design
     await H.click('[data-act="openSettings"]');
-    record(`HD4a (${tag}). Settings shows five sections`, H.$$('#side-pane [data-act="settingsSection"]').length === 5 && (tag==='folded' ? !H.$('#side-pane [data-act="homeDesign"]') : /People and documents/.test(H.text('#side-pane .set-body'))));
+    H.ev('settingsOpen.clear(); renderSide(topPane())'); await sleep(3);
+    record(`HD4a (${tag}). Settings shows five drop-down sections, all closed`, H.$$('#side-pane [data-act="settingsSection"]').length === 5 && !H.$('#side-pane .set-acc-body') && H.$$('#side-pane [aria-expanded="false"]').length === 5);
+    if (width >= 720) record('HD4w (unfolded). Settings sits in the right pane; Home stays on the left', !H.d.body.classList.contains('wide-settings') && !!H.$('#list-pane .topbar'));
+    await H.click('#side-pane [data-act="settingsSection"][data-s="reminders"]');
     await H.click('#side-pane [data-act="settingsSection"][data-s="look"]');
+    const secs = H.$$('#side-pane .set-acc').map(e => e.id + (e.classList.contains('open') ? '+' : '')).join(',');
+    record(`HD4c (${tag}). Two sections open at once; everything below stays in view`, secs === 'set-people,set-reminders+,set-look+,set-security,set-data' && !!H.$('#remtime'), secs);
+    await H.click('#side-pane [data-act="settingsSection"][data-s="reminders"]');
+    record(`HD4d (${tag}). Tapping an open section closes it; the other stays open`, !H.$('#remtime') && H.$('#set-look').classList.contains('open') && H.$('#set-reminders [aria-expanded]').getAttribute('aria-expanded') === 'false');
     record(`HD4 (${tag}). Look and feel offers the three Home designs`, H.$$('#side-pane [data-act="homeDesign"]').length === 3 && /Look and feel/.test(H.text('#side-pane')));
     await H.click('#side-pane [data-act="homeDesign"][data-v="timeline"]');
     record(`HD5 (${tag}). Choosing Timeline saves it`, H.ev('state.settings.homeDesign') === 'timeline');
@@ -1603,7 +1610,7 @@ async function main(){
   {
     const a = await open({ storage: saved });
     await unlock(a);
-    await a.click('[data-act="openProfiles"]');
+    await a.click('[data-act="openSettings"]'); await a.click('[data-act="openProfiles"]'); // People is in Settings (no Home button)
     await a.click('[data-act="addProfile"]');
     await a.type('#p-name', 'Amina <b>x</b>'); await a.type('#p-rel', 'Spouse');
     await a.click('[data-act="saveProfile"]');
@@ -1611,7 +1618,7 @@ async function main(){
     await a.click('[data-act="back"]');
     const amina = a.ev(`state.profiles.find(p=>p.name.startsWith('Amina')).id`);
     const salim = a.ev(`state.profiles.find(p=>p.name==='Salim').id`);
-    await a.click('[data-act="openProfiles"]');
+    await a.click('[data-act="openSettings"]'); await a.click('[data-act="openProfiles"]'); // People is in Settings (no Home button)
     await a.click(`[data-act="editProfile"][data-id="${salim}"]`);
     await a.click('[data-act="deleteProfile"]');
     record('P2. Deleting a profile with documents asks move or archive', /has 2 documents/.test(a.text('#sheet')) && /Move to Amina/.test(a.text('#sheet')));
