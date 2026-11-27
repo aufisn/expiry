@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expiry Settings redesign</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.50.0/dist/tabler-icons.min.css" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F1E8; --surface:#FFFFFF; --surface-2:#FBF8F1; --border:#DAD5C8; --border-strong:#C7C0AC;
+    --text:#2B2B28; --text-2:#6B6858; --text-3:#9C9887; --accent:#7A2E2E; --accent-bg:#F3E6E3; --on-accent:#FFFFFF;
+    --red:#A33333; --red-bg:#F7E6E6; --amber:#8A5A0B; --amber-bg:#F8EBD3; --green:#3B6D2E; --green-bg:#E4EFDC;
+    --radius:12px; --page:#E9E4D8;
+  }
+  html[data-theme="midnight"]{
+    --bg:#12161F; --surface:#1B212D; --surface-2:#212838; --border:#2A3140; --border-strong:#3A4356;
+    --text:#E9E4D8; --text-2:#A8A290; --text-3:#6E7280; --accent:#C9A227; --accent-bg:#332B18; --on-accent:#12161F;
+    --red:#E08A7C; --red-bg:#3A2420; --amber:#E0B054; --amber-bg:#3A2E18; --green:#7CC495; --green-bg:#1A3024;
+    --page:#0B0E14;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--page); color:var(--text); font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.45;}
+  .wrap{max-width:1300px; margin:0 auto; padding:20px 16px 60px;}
+  h1{font-size:22px; font-weight:600; margin:0 0 4px}
+  .intro{color:var(--text-2); margin:0 0 14px; font-size:14px; max-width:820px}
+  .bar{display:flex; gap:8px; margin:0 0 18px}
+  .tab{border:1px solid var(--border-strong); background:none; color:var(--text); border-radius:999px; padding:7px 14px; font:inherit; font-size:14px; cursor:pointer}
+  h2{font-size:18px; font-weight:600; margin:26px 0 4px}
+  .what{color:var(--text-2); font-size:14px; margin:0 0 10px; max-width:860px}
+  .frames{display:flex; gap:22px; align-items:flex-start; overflow-x:auto; padding-bottom:8px}
+  .fcap{font-size:12px; color:var(--text-3); margin:0 0 6px}
+  .device{border:8px solid #05070B; border-radius:28px; background:var(--bg); overflow:hidden; flex:none}
+  html:not([data-theme="midnight"]) .device{border-color:#3A3A36}
+  .fold{width:375px; height:760px} .open{width:840px; height:700px; border-radius:22px}
+  .scr{height:100%; overflow:hidden; padding:10px 14px}
+  .split{display:grid; grid-template-columns:340px 1fr; height:100%}
+  .split > div{overflow:hidden; padding:10px 14px} .split > div:last-child{background:var(--surface-2); border-left:1px solid var(--border); padding:10px 22px}
+  .top{display:flex; align-items:center; gap:6px; min-height:44px; margin-bottom:6px}
+  .top h3{flex:1; margin:0; font-size:19px; font-weight:600}
+  .ib{width:36px; height:36px; display:flex; align-items:center; justify-content:center; color:var(--text-2); font-size:20px}
+  .sec{display:flex; align-items:center; gap:12px; width:100%; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:8px}
+  .sec.sel{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent)}
+  .sec > .ti:first-child{font-size:22px; color:var(--accent); width:28px; text-align:center}
+  .sec .t{flex:1; min-width:0} .sec b{display:block; font-weight:600} .sec small{display:block; color:var(--text-2); font-size:12px; margin-top:2px}
+  .sec .ti-chevron-right{color:var(--text-3)}
+  .sub-title{font-size:12px; color:var(--text-3); margin:14px 0 6px}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; margin-bottom:10px}
+  .kv{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:14px}
+  .kv:last-child{border-bottom:none} .kv .k{font-weight:500} .kv small{display:block; color:var(--text-2); font-size:12px; font-weight:400}
+  .on{font-size:12px; padding:2px 8px; border-radius:6px; background:var(--green-bg); color:var(--green)}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px}
+  .chip{border:1px solid var(--border-strong); border-radius:999px; padding:5px 11px; font-size:13px; color:var(--text-2)}
+  .chip.on2{background:var(--accent-bg); border-color:var(--accent); color:var(--accent)}
+  .btn{border:1px solid var(--border-strong); border-radius:10px; padding:8px 12px; font-size:13px; display:inline-flex; gap:6px; align-items:center; background:var(--surface-2)}
+  .danger{color:var(--red)}
+  .back{display:flex; align-items:center; gap:6px; color:var(--text-2); font-size:14px}
+  ol.notes{color:var(--text-2); font-size:14px; padding-left:18px; max-width:900px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Expiry · Settings regrouped</h1>
+  <p class="intro">Mock-up in Expiry's own colours. Settings becomes five sections. Folded: the Settings screen is the five rows (each with a one-line summary), and a section opens as its own page. Unfolded: the sections stay on the left and the chosen one shows on the right. Nothing is removed; every existing setting moves into one of the five.</p>
+  <div class="bar"><button class="tab" id="theme"><i class="ti ti-sun"></i> Paper theme</button></div>
+
+  <h2>Folded (cover screen)</h2>
+  <p class="what">Left: the Settings screen. Right: tapping “Security and privacy” opens that section; the back arrow returns to the five.</p>
+  <div class="frames">
+    <div><div class="fcap">Settings</div>
+      <div class="device fold"><div class="scr">
+        <div class="top"><span class="ib"><i class="ti ti-arrow-left"></i></span><h3>Settings</h3></div>
+        <div class="sec"><i class="ti ti-users"></i><div class="t"><b>People and documents</b><small>3 people · 8 document types · scans read day-first</small></div><i class="ti ti-chevron-right"></i></div>
+        <div class="sec"><i class="ti ti-bell"></i><div class="t"><b>Reminders</b><small>09:00 · calendar up to date · “Needs attention” shown</small></div><i class="ti ti-chevron-right"></i></div>
+        <div class="sec"><i class="ti ti-palette"></i><div class="t"><b>Look and feel</b><small>Family home · Midnight · 14 Apr 2027</small></div><i class="ti ti-chevron-right"></i></div>
+        <div class="sec"><i class="ti ti-lock"></i><div class="t"><b>Security and privacy</b><small>Fingerprint on · auto-lock 5 min · reveal 60 s, one document</small></div><i class="ti ti-chevron-right"></i></div>
+        <div class="sec"><i class="ti ti-cloud"></i><div class="t"><b>Your data</b><small>Synced 2 min ago · backup 3 Nov</small></div><i class="ti ti-chevron-right"></i></div>
+        <p style="font-size:12px;color:var(--text-3);text-align:center;margin-top:14px">Expiry · version m10</p>
+      </div></div>
+    </div>
+    <div><div class="fcap">Security and privacy (opened)</div>
+      <div class="device fold"><div class="scr">
+        <div class="top"><span class="ib"><i class="ti ti-arrow-left"></i></span><h3>Security and privacy</h3></div>
+        <div class="card">
+          <div class="kv"><span class="k">App lock<small>Password needed to open Expiry</small></span><span class="on">On</span></div>
+          <div style="display:flex;gap:8px;padding:6px 0 2px"><span class="btn"><i class="ti ti-lock"></i>Lock now</span><span class="btn"><i class="ti ti-key"></i>Change password</span></div>
+        </div>
+        <div class="card">
+          <div class="kv"><span class="k">Fingerprint<small>Opens the app and reveals sensitive info</small></span><span class="on">On</span></div>
+          <div style="padding:6px 0 2px"><span class="btn">Turn off</span></div>
+        </div>
+        <div class="card">
+          <div class="k" style="font-weight:500">Auto-lock</div><small style="color:var(--text-2);font-size:12px">Locks Expiry when it's left idle</small>
+          <div class="chips"><span class="chip">When I leave</span><span class="chip">1 min</span><span class="chip on2">5 min</span><span class="chip">15 min</span><span class="chip">Never</span></div>
+        </div>
+        <div class="card">
+          <div class="k" style="font-weight:500">Revealing sensitive info</div><small style="color:var(--text-2);font-size:12px">Numbers and locked images of one document</small>
+          <div class="chips"><span class="chip on2">60 seconds, that document only</span><span class="chip">Ask every time</span></div>
+        </div>
+      </div></div>
+    </div>
+    <div><div class="fcap">Your data (opened)</div>
+      <div class="device fold"><div class="scr">
+        <div class="top"><span class="ib"><i class="ti ti-arrow-left"></i></span><h3>Your data</h3></div>
+        <div class="card">
+          <div class="kv"><span class="k">GitHub sync<small>Gist 3f2a…c91b · Synced 2 min ago</small></span><span class="on">On</span></div>
+          <div style="display:flex;gap:8px;padding:6px 0 2px"><span class="btn"><i class="ti ti-refresh"></i>Sync now</span><span class="btn">Disconnect</span></div>
+        </div>
+        <div class="card">
+          <div class="kv"><span class="k">Backup<small>Last backup 3 Nov 2026 (encrypted)</small></span></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 0 2px"><span class="btn"><i class="ti ti-database-export"></i>Back up now</span><span class="btn"><i class="ti ti-restore"></i>Restore</span></div>
+        </div>
+        <div class="sub-title">Danger zone</div>
+        <div class="card"><div class="kv"><span class="k danger"><i class="ti ti-trash"></i> Erase this device<small>Removes Expiry's data from this phone only</small></span></div></div>
+      </div></div>
+    </div>
+  </div>
+
+  <h2>Unfolded (inner screen)</h2>
+  <p class="what">The five sections on the left; the chosen section on the right. Changing a setting updates the summary line on the left straight away.</p>
+  <div class="frames">
+    <div><div class="fcap">Unfolded · Reminders selected</div>
+      <div class="device open"><div class="split">
+        <div>
+          <div class="top"><span class="ib"><i class="ti ti-x"></i></span><h3>Settings</h3></div>
+          <div class="sec"><i class="ti ti-users"></i><div class="t"><b>People and documents</b><small>3 people · 8 types · day-first</small></div></div>
+          <div class="sec sel"><i class="ti ti-bell"></i><div class="t"><b>Reminders</b><small>09:00 · calendar up to date</small></div></div>
+          <div class="sec"><i class="ti ti-palette"></i><div class="t"><b>Look and feel</b><small>Family · Midnight · 14 Apr 2027</small></div></div>
+          <div class="sec"><i class="ti ti-lock"></i><div class="t"><b>Security and privacy</b><small>Fingerprint on · auto-lock 5 min</small></div></div>
+          <div class="sec"><i class="ti ti-cloud"></i><div class="t"><b>Your data</b><small>Synced 2 min ago · backup 3 Nov</small></div></div>
+        </div>
+        <div>
+          <div class="top"><h3>Reminders</h3></div>
+          <div class="card">
+            <div class="kv"><span class="k">Reminder time<small>Calendar alerts go off at this time on each reminder date</small></span><span class="chip on2">09:00</span></div>
+          </div>
+          <div class="card">
+            <div class="kv"><span class="k">Calendar<small>All 9 documents up to date in your calendar</small></span><span class="on">Up to date</span></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;padding:6px 0 2px"><span class="btn"><i class="ti ti-calendar-plus"></i>Add all reminders to calendar</span><span class="btn"><i class="ti ti-refresh"></i>Start fresh in Google Calendar</span></div>
+          </div>
+          <div class="card">
+            <div class="k" style="font-weight:500">“Needs attention” on Home</div>
+            <div class="chips"><span class="chip on2">Show</span><span class="chip">Don't show</span></div>
+          </div>
+          <div class="card" style="opacity:.7">
+            <div class="kv"><span class="k"><i class="ti ti-brand-telegram"></i> Telegram reminders<small>Coming later (PRD E1)</small></span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <h2>What goes where</h2>
+  <ol class="notes">
+    <li><b>People and documents:</b> Profiles · Document types and fields · Date format when reading scans (day-first / month-first).</li>
+    <li><b>Reminders:</b> Reminder time · Calendar (add all, start fresh in Google Calendar) · “Needs attention” on Home · later: Telegram.</li>
+    <li><b>Look and feel:</b> Home design (List / Timeline / Family) · Theme · How dates are shown.</li>
+    <li><b>Security and privacy:</b> App lock, Lock now, Change password · Fingerprint · Auto-lock · Revealing sensitive info.</li>
+    <li><b>Your data:</b> GitHub sync · Backup and restore · Erase this device (in a danger zone at the bottom).</li>
+  </ol>
+</div>
+<script>
+  const tb = document.getElementById('theme');
+  tb.addEventListener('click',()=>{ const h=document.documentElement, dark=h.dataset.theme==='midnight'; h.dataset.theme = dark?'paper':'midnight'; tb.innerHTML = dark?'<i class="ti ti-moon"></i> Midnight theme':'<i class="ti ti-sun"></i> Paper theme'; });
+</script>
+</body>
+</html>

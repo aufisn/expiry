@@ -134,11 +134,24 @@ async function open({ width = 400, today = '2026-11-06', storage = null, auth = 
     $$: (s) => [...d.querySelectorAll(s)],
     ev: (code) => w.eval(code),
     keepCal: false,
-    click: async (sel) => { const el = typeof sel === 'string' ? d.querySelector(sel) : sel; if (!el) throw new Error('missing ' + sel); el.dispatchEvent(new w.MouseEvent('click', { bubbles: true })); await sleep(8);
+    findInSettings: async (sel) => {
+      for (const k of ['people','reminders','look','security','data']){
+        while (w.eval('topPane() && topPane().screen==="settings" && !!topPane().section && innerWidth < 720')) { w.eval('goBack()'); await sleep(2); }
+        w.eval('ACT.settingsSection({ dataset:{ s:' + JSON.stringify(k) + ' } })'); await sleep(3);
+        const el = d.querySelector(sel); if (el) return el;
+      }
+      return null;
+    },
+    click: async (sel) => { let el = typeof sel === 'string' ? d.querySelector(sel) : sel;
+      // Settings is in five sections: like a person, open the section that holds the control
+      if (!el && typeof sel === 'string' && w.eval('!!(topPane() && topPane().screen==="settings")')) el = await a.findInSettings(sel);
+      if (!el) throw new Error('missing ' + sel); el.dispatchEvent(new w.MouseEvent('click', { bubbles: true })); await sleep(8);
       // saving offers "Add to calendar"; older tests aren't about that, so close it unless a test wants it
       if (sel === '[data-act="saveDoc"]' && !a.keepCal){ for (let i = 0; i < 200 && w.eval('_saving'); i++) await sleep(10); await sleep(5);
         if (w.eval('!!(topEntry() && topEntry().calendar)')){ d.querySelector('#sheet [data-act="back"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true })); await sleep(5); } } },
-    type: async (sel, value) => { const el = typeof sel === 'string' ? d.querySelector(sel) : sel; if (!el) throw new Error('missing ' + sel); el.value = value; el.dispatchEvent(new w.Event('input', { bubbles: true })); await sleep(2); },
+    type: async (sel, value) => { let el = typeof sel === 'string' ? d.querySelector(sel) : sel;
+      if (!el && typeof sel === 'string' && w.eval('!!(topPane() && topPane().screen==="settings")')) el = await a.findInSettings(sel);
+      if (!el) throw new Error('missing ' + sel); el.value = value; el.dispatchEvent(new w.Event('input', { bubbles: true })); await sleep(2); },
     snapshot: async () => { await w.eval('flushSecureWrites()'); const o = {}; for (let i = 0; i < w.localStorage.length; i++){ const k = w.localStorage.key(i); o[k] = w.localStorage.getItem(k); } return o; },
     text: (s) => (d.querySelector(s) || {}).textContent || '',
     waitFor: async (cond, ms = 6000) => { const end = Date.now() + ms; while (Date.now() < end){ try{ if (cond()) return true; }catch(e){} await sleep(15); } return false; },
@@ -203,7 +216,9 @@ async function main(){
     if (width >= 720) record('HD3 (unfolded). Nothing open: the right side shows each person with counts', /Your family/.test(H.text('#side-pane')) && H.$$('#side-pane .person').length === 3 && /1 expired/.test(H.text('#side-pane')));
     // Settings: choose the design
     await H.click('[data-act="openSettings"]');
-    record(`HD4 (${tag}). Settings offers the three Home designs`, H.$$('#side-pane [data-act="homeDesign"]').length === 3);
+    record(`HD4a (${tag}). Settings shows five sections`, H.$$('#side-pane [data-act="settingsSection"]').length === 5 && (tag==='folded' ? !H.$('#side-pane [data-act="homeDesign"]') : /People and documents/.test(H.text('#side-pane .set-body'))));
+    await H.click('#side-pane [data-act="settingsSection"][data-s="look"]');
+    record(`HD4 (${tag}). Look and feel offers the three Home designs`, H.$$('#side-pane [data-act="homeDesign"]').length === 3 && /Look and feel/.test(H.text('#side-pane')));
     await H.click('#side-pane [data-act="homeDesign"][data-v="timeline"]');
     record(`HD5 (${tag}). Choosing Timeline saves it`, H.ev('state.settings.homeDesign') === 'timeline');
     await closePane();
@@ -584,7 +599,7 @@ async function main(){
     // ask every time
     await a.click('[data-act="openSettings"]');
     await a.click('[data-act="revealMode"][data-m="each"]');
-    await a.click('[data-act="closePanes"]');
+    a.ev('closeAllPanes()'); await sleep(5);
     await a.click(a.$$('#doc-list .row').find(r => /Visa debit/.test(r.textContent)));
     await revealWithPassword(a);
     const revealedEach = /5500 0000 0000 9999/.test(a.text('#side-pane'));
@@ -1389,8 +1404,8 @@ async function main(){
       await A.click('[data-act="saveDoc"]'); await A.waitFor(() => !A.ev('_saving')); await sleep(10);
       await A.click('#side-pane [data-act="back"]');
     }
-    await A.click('[data-act="openSettings"]');
-    record('BK1. Settings shows backup status: never', /Backup and restore/.test(A.text('#side-pane')) && /haven’t made a backup/.test(A.text('#side-pane')));
+    await A.click('[data-act="openSettings"]'); await A.click('#side-pane [data-act="settingsSection"][data-s="data"]');
+    record('BK1. Settings → Your data shows backup status: never', /Backup and restore/.test(A.text('#side-pane')) && /haven’t made a backup/.test(A.text('#side-pane')));
     await A.click('[data-act="backupMake"]');
     await A.type('#pwd-in-0', 'wrong-password'); await A.click('[data-act="pwdOk"]'); await A.waitFor(() => /Incorrect/.test(A.text('#pwd-error')));
     record('BK2. Backup needs your password', /Incorrect password/.test(A.text('#pwd-error')));

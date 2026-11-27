@@ -107,6 +107,13 @@
   .doc-prompt.expired{background:var(--red-bg);} .doc-prompt.expired .ti{color:var(--red);}
   .doc-prompt.soon{background:var(--amber-bg);} .doc-prompt.soon .ti{color:var(--amber);}
   .actions.top{margin:8px 0 4px;}
+  .set-sec{display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin:0 0 8px; min-height:56px;}
+  .set-sec.on{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent);}
+  .set-sec > .ti:first-child{font-size:22px; color:var(--accent); width:28px; text-align:center; flex:none;}
+  .set-sec b{display:block; font-weight:600;} .set-sec small{display:block; color:var(--text-2); font-size:12px; margin-top:2px;}
+  .set-sec .ti-chevron-right{color:var(--text-3);}
+  .set-grid{display:block;} .set-nav-title{display:none;}
+  .danger-title{color:var(--red);}
   .design-opt{display:flex; gap:10px; align-items:flex-start; width:100%; text-align:left; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin:6px 0;}
   .design-opt.on{border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent);}
   .design-opt .ti{font-size:22px; color:var(--accent);} .design-opt b{display:block; font-weight:600;} .design-opt small{color:var(--text-2); font-size:12px;}
@@ -350,6 +357,11 @@
     .side-inner.wide-split{max-width:1240px;}
     body.wide-editor #app,body.wide-editor.pane-open #app{grid-template-columns:minmax(0,1fr);}
     body.wide-editor #list-pane{display:none;}
+    body.wide-settings #app,body.wide-settings.pane-open #app{grid-template-columns:minmax(0,1fr);}
+    body.wide-settings #list-pane{display:none;}
+    body.wide-settings .side-inner{max-width:1100px;}
+    .set-grid{display:grid; grid-template-columns:minmax(260px,320px) minmax(0,1fr); gap:24px; align-items:start;}
+    .set-grid .set-nav{position:sticky; top:8px;}
     .editor-split{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:20px; align-items:start;}
     .split-left{display:block; position:sticky; top:8px;}
     .phone-only{display:none !important;}
@@ -389,7 +401,7 @@
    chokepoint (encrypted, async, coalesced), startApp() runs after unlock.
    Nothing is ever written to storage unencrypted.
    ===================================================================================== */
-const APP_VERSION = 'M9';
+const APP_VERSION = 'M10';
 const STATE_KEY = 'expiry_state';
 const LOCK_REC_KEY = 'expiry_lock_v1';
 const BIO_KEY = 'expiry_bio';
@@ -744,6 +756,7 @@ function renderNav(force){
   }
   // Check details for a scan takes the whole inner screen when unfolded: image left, fields right
   document.body.classList.toggle('wide-editor', !!(pane && pane.screen==='edit' && wideEditorOn()));
+  document.body.classList.toggle('wide-settings', !!(pane && pane.screen==='settings'));
   renderSheet();
   renderHome();
 }
@@ -973,7 +986,7 @@ function overviewPaneHTML(){
   if(!state.documents.length) return `<div class="empty" style="padding-top:30vh"><i class="ti ti-file-search" aria-hidden="true"></i><h3>Select a document</h3><div>Its details, reminders and scans show here.</div></div>`;
   const s = syncState(), calN = calCounts().n;
   const status = `<div class="sec-title">Status</div><div class="card">
-      ${s ? syncLineHTML('ov-sync-line', 'All changes saved and synced') : `<div class="cal-line"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>GitHub sync is off</span><button class="mini-btn" data-act="openSettings">Settings</button></div>`}
+      ${s ? syncLineHTML('ov-sync-line', 'All changes saved and synced') : `<div class="cal-line"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>GitHub sync is off</span><button class="mini-btn" data-act="openSettings" data-s="data">Settings</button></div>`}
       ${calN ? `<div class="cal-line warn"><i class="ti ti-calendar-exclamation" aria-hidden="true"></i><span>Calendar: ${calN} document${calN===1?'':'s'} changed</span><button class="mini-btn" data-act="calAll">Update</button></div>` : `<div class="cal-line ok"><i class="ti ti-calendar-check" aria-hidden="true"></i><span>Calendar up to date</span></div>`}</div>`;
   if(homeDesign()==='family'){
     const needs = all.filter(x=>x.st==='expired'||x.st==='soon'||renewalOverdue(x.d)).sort((a,b)=>compareDocs(a.d,b.d));
@@ -1028,7 +1041,7 @@ function renderHomeInner(){
   if(!hasAny){
     const p = ui.profile!=='all' && profileById(ui.profile);
     body = `<div class="empty"><i class="ti ti-file-plus" aria-hidden="true"></i><h3>${p?'Add '+esc(p.name)+'’s first document':'Add your first document'}</h3><div>Track a passport, ID, card, registration or policy, and get reminded before it expires.</div>
-      ${!p && !state.documents.length ? `<button class="link-btn" data-act="restorePick">Restore from a backup</button>${syncCfg ? '' : ' · <button class="link-btn" data-act="openSettings">Connect GitHub sync</button>'}` : ''}</div>`;
+      ${!p && !state.documents.length ? `<button class="link-btn" data-act="restorePick">Restore from a backup</button>${syncCfg ? '' : ' · <button class="link-btn" data-act="openSettings" data-s="data">Connect GitHub sync</button>'}` : ''}</div>`;
   } else {
     for(const [title, items] of groups){
       if(!items.length) continue;
@@ -1148,7 +1161,7 @@ function renderSide(entry){
   else if(entry.screen==='edit') html = renderEditor();
   else if(entry.screen==='profiles') html = renderProfiles();
   else if(entry.screen==='profile-edit') html = renderProfileEditor();
-  else if(entry.screen==='settings') html = renderSettings();
+  else if(entry.screen==='settings') html = renderSettings(entry);
   else if(entry.screen==='types') html = renderTypes();
   else if(entry.screen==='type-edit') html = renderTypeEditor();
   else if(entry.screen==='history') html = renderHistory(entry);
@@ -1481,17 +1494,90 @@ function deleteProfileFlow(pid){
 }
 
 /* ---------- settings + types ---------- */
-function renderSettings(){
+const SETTINGS_SECTIONS = [
+  ['people', 'People and documents', 'ti-users'],
+  ['reminders', 'Reminders', 'ti-bell'],
+  ['look', 'Look and feel', 'ti-palette'],
+  ['security', 'Security and privacy', 'ti-lock'],
+  ['data', 'Your data', 'ti-cloud'],
+];
+function settingsSummary(k){
+  if(k==='people'){ const n = activeProfiles().length; return `${n} ${n===1?'person':'people'} · ${state.types.length} document types · scans read ${state.settings.dateFormat==='MDY'?'month':'day'}-first`; }
+  if(k==='reminders'){ const c = calNeedsUpdate().length; return `${state.settings.reminderTime||'09:00'} · ${c ? c+' not up to date in your calendar' : 'calendar up to date'} · “Needs attention” ${state.settings.summaryOnOpen===false?'hidden':'shown'}`; }
+  if(k==='look'){ const d = HOME_DESIGNS.find(x=>x[0]===homeDesign()); return `${d?d[1]:'List'} home · ${state.settings.theme==='paper'?'Paper':'Midnight'} · ${fmtDate('2027-04-14')}`; }
+  if(k==='security'){ const al = AUTOLOCK_OPTIONS.find(o=>o[0]===autoLockSetting()); return `Fingerprint ${loadBio()?'on':'off'} · auto-lock ${al ? al[1].toLowerCase() : ''} · ${state.settings.revealMode==='each'?'reveal asks every time':'reveal 60 s, one document'}`; }
+  if(k==='data'){ const last = state.settings.lastBackupAt; return `${syncCfg ? syncStatusText() : 'GitHub sync off'} · ${last ? 'backup '+fmtDate(last.slice(0,10)) : 'no backup yet'}`; }
+  return '';
+}
+function settingsNavHTML(cur){
+  return SETTINGS_SECTIONS.map(([k,l,ic])=>`<button class="set-sec${cur===k?' on':''}" data-act="settingsSection" data-s="${k}"${cur===k?' aria-current="true"':''}><i class="ti ${ic}" aria-hidden="true"></i><span style="flex:1;min-width:0"><b>${l}</b><small>${esc(settingsSummary(k))}</small></span><i class="ti ti-chevron-right" aria-hidden="true"></i></button>`).join('');
+}
+function settingsSectionHTML(k){
   const th = state.settings.theme, rm = state.settings.revealMode;
-  const bio = loadBio(), al = autoLockSetting();
-  let bioBody;
-  if(!bioApiPresent()) bioBody = `<p class="sub">Not available here. It needs Expiry’s secure web address on a phone with fingerprint unlock.</p>`;
-  else if(_bioPlatform===null) bioBody = `<p class="sub">Checking this device…</p>`;
-  else if(bio) bioBody = `<p class="sub">Your fingerprint opens the app and reveals sensitive info. Your password always works too.</p><div class="sec-actions"><button class="btn" data-act="bioOff">Turn off</button></div>`;
-  else if(!_bioPlatform) bioBody = `<p class="sub">This phone has no fingerprint unlock set up for apps. Set one up in your phone’s settings, then reopen Expiry.</p>`;
-  else bioBody = `<p class="sub">Use your fingerprint instead of typing your password.</p><div class="sec-actions"><button class="btn primary" data-act="bioOn"><i class="ti ti-fingerprint" aria-hidden="true"></i>Turn on</button></div>`;
-  return paneTop('Settings') + `
-    <div class="sec-title">Security</div>
+  if(k==='people') return `
+    <button class="row" data-act="openProfiles"><i class="ti ti-users" aria-hidden="true"></i><div class="row-main"><div class="row-title">Profiles</div><div class="row-sub">${activeProfiles().length} people · add, edit or remove</div></div><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+    <button class="row" data-act="openTypes"><i class="ti ti-forms" aria-hidden="true"></i><div class="row-main"><div class="row-title">Document types and fields</div><div class="row-sub">${state.types.length} types · add fields or your own types</div></div><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
+    <div class="card" style="padding:10px 14px">
+      <div class="row-title">Date format when reading scans</div>
+      <p class="sub">Used when a date like 03/04/2027 could be read two ways. Unclear dates are always flagged.</p>
+      <div class="chips">
+        <button class="chip${state.settings.dateFormat!=='MDY'?' on':''}" data-act="dateFormat" data-f="DMY">Day first (14/04/2027)</button>
+        <button class="chip${state.settings.dateFormat==='MDY'?' on':''}" data-act="dateFormat" data-f="MDY">Month first (04/14/2027)</button>
+      </div>
+      <p class="muted">Text is read on this phone. The reader is downloaded once, and your images never leave the phone.</p>
+    </div>`;
+  if(k==='reminders') return `
+    <div class="card" style="padding:10px 14px">
+      <label class="row-title" for="remtime">Reminder time</label>
+      <p class="sub">Calendar alerts go off at this time on each reminder date.</p>
+      <input id="remtime" class="sec-select" type="time" value="${esc(state.settings.reminderTime||'09:00')}" data-bind="remtime">
+    </div>
+    <div class="card" style="padding:10px 14px">
+      <div class="row-title">Calendar</div>
+      <p class="sub">${(n=>n ? n+' document(s) not up to date in your calendar.' : 'Your calendar is up to date.')(calNeedsUpdate().length)}</p>
+      <div class="sec-actions"><button class="btn" data-act="calEverything"><i class="ti ti-calendar-plus" aria-hidden="true"></i>Add all reminders to calendar</button></div>
+      <p class="muted">Use this on a new phone, or if you cleared your calendar. Events are updated, not duplicated.</p>
+      <div class="sec-actions"><button class="btn" data-act="calFresh"><i class="ti ti-refresh" aria-hidden="true"></i>Start fresh in Google Calendar</button></div>
+      <p class="muted">If Google Calendar left out some reminders when you imported.</p>
+    </div>
+    <div class="card" style="padding:10px 14px">
+      <div class="row-title">“Needs attention” on Home</div>
+      <div class="chips">
+        <button class="chip${state.settings.summaryOnOpen!==false?' on':''}" data-act="summaryToggle" data-v="on">Show</button>
+        <button class="chip${state.settings.summaryOnOpen===false?' on':''}" data-act="summaryToggle" data-v="off">Don’t show</button>
+      </div>
+    </div>
+    <div class="card" style="padding:10px 14px;opacity:.7">
+      <div class="row-title"><i class="ti ti-brand-telegram" aria-hidden="true"></i> Telegram reminders</div>
+      <p class="sub">Coming later.</p>
+    </div>`;
+  if(k==='look') return `
+    <div class="card" style="padding:10px 14px">
+      <div class="row-title">Home design</div>
+      <div role="radiogroup" aria-label="Home design">${HOME_DESIGNS.map(([dk,l,ic,desc])=>`<button class="design-opt${homeDesign()===dk?' on':''}" role="radio" aria-checked="${homeDesign()===dk}" data-act="homeDesign" data-v="${dk}"><i class="ti ${ic}" aria-hidden="true"></i><span><b>${l}</b><small>${esc(desc)}</small></span></button>`).join('')}</div>
+      <p class="muted">Folded and unfolded both follow it. Unfolded, the right side shows your family overview until you open a document.</p>
+    </div>
+    <div class="card" style="padding:10px 14px">
+      <div class="row-title">Theme</div>
+      <div class="chips">
+        <button class="chip${th==='midnight'?' on':''}" data-act="theme" data-t="midnight">Midnight</button>
+        <button class="chip${th==='paper'?' on':''}" data-act="theme" data-t="paper">Paper</button>
+      </div>
+    </div>
+    <div class="card" style="padding:10px 14px">
+      <div class="row-title">How dates are shown</div>
+      <div class="chips" style="flex-wrap:wrap">${Object.entries(DATE_DISPLAYS).map(([dk,l])=>`<button class="chip${(state.settings.dateDisplay||'text')===dk?' on':''}" data-act="dateDisplay" data-f="${dk}">${l}</button>`).join('')}</div>
+      <p class="muted">Calendar events always use the written-out form, like 14 Apr 2027.</p>
+    </div>`;
+  if(k==='security'){
+    const bio = loadBio(), al = autoLockSetting();
+    let bioBody;
+    if(!bioApiPresent()) bioBody = `<p class="sub">Not available here. It needs Expiry’s secure web address on a phone with fingerprint unlock.</p>`;
+    else if(_bioPlatform===null) bioBody = `<p class="sub">Checking this device…</p>`;
+    else if(bio) bioBody = `<p class="sub">Your fingerprint opens the app and reveals sensitive info. Your password always works too.</p><div class="sec-actions"><button class="btn" data-act="bioOff">Turn off</button></div>`;
+    else if(!_bioPlatform) bioBody = `<p class="sub">This phone has no fingerprint unlock set up for apps. Set one up in your phone’s settings, then reopen Expiry.</p>`;
+    else bioBody = `<p class="sub">Use your fingerprint instead of typing your password.</p><div class="sec-actions"><button class="btn primary" data-act="bioOn"><i class="ti ti-fingerprint" aria-hidden="true"></i>Turn on</button></div>`;
+    return `
     <div class="card" style="padding:10px 14px">
       <div class="kv" style="border:none;padding:0"><span class="row-title">App lock</span><span class="on-badge on">On</span></div>
       <p class="sub">Everything is encrypted on this device (AES-256). If you forget your password it can’t be recovered.</p>
@@ -1507,62 +1593,36 @@ function renderSettings(){
       <select id="autolock-select" class="sec-select" data-bind="autolock">${AUTOLOCK_OPTIONS.map(o=>`<option value="${o[0]}"${o[0]===al?' selected':''}>${o[1]}</option>`).join('')}</select>
     </div>
     <div class="card" style="padding:10px 14px">
-      <div class="row-title">Sensitive info</div>
-      <p class="sub">Card numbers and, later, ID and card images need your fingerprint or password each time you reveal them.</p>
-      <div class="chips">
+      <div class="row-title">Revealing sensitive info</div>
+      <p class="sub">Numbers and locked images need your fingerprint or password, for one document at a time.</p>
+      <div class="chips" style="flex-wrap:wrap">
         <button class="chip${rm==='window'?' on':''}" data-act="revealMode" data-m="window">60 seconds, that document only</button>
         <button class="chip${rm==='each'?' on':''}" data-act="revealMode" data-m="each">Ask every time</button>
       </div>
-    </div>
-    <div class="sec-title">Sync</div>
+    </div>`;
+  }
+  if(k==='data') return `
+    <div class="sec-title">GitHub sync</div>
     ${syncCardHTML()}
-    <div class="sec-title">Backup</div>
+    <div class="sec-title">Backup and restore</div>
     ${backupCardHTML()}
-    <div class="sec-title">Reminders and calendar</div>
-    <div class="card" style="padding:10px 14px">
-      <label class="row-title" for="remtime">Reminder time</label>
-      <p class="sub">Calendar alerts go off at this time on each reminder date.</p>
-      <input id="remtime" class="sec-select" type="time" value="${esc(state.settings.reminderTime||'09:00')}" data-bind="remtime">
-      <div class="row-title" style="margin-top:6px">“Needs attention” on Home</div>
-      <div class="chips">
-        <button class="chip${state.settings.summaryOnOpen!==false?' on':''}" data-act="summaryToggle" data-v="on">Show</button>
-        <button class="chip${state.settings.summaryOnOpen===false?' on':''}" data-act="summaryToggle" data-v="off">Don’t show</button>
-      </div>
-      <div class="sec-actions"><button class="btn" data-act="calEverything"><i class="ti ti-calendar-plus" aria-hidden="true"></i>Add all reminders to calendar</button></div>
-      <p class="muted">Use this on a new phone, or if you cleared your calendar. Events are updated, not duplicated.${calNeedsUpdate().length ? ' '+calNeedsUpdate().length+' document(s) not up to date.' : ''}</p>
-      <div class="sec-actions"><button class="btn" data-act="calFresh"><i class="ti ti-refresh" aria-hidden="true"></i>Start fresh in Google Calendar</button></div>
-      <p class="muted">If Google Calendar left out some reminders when you imported.</p>
-    </div>
-    <div class="sec-title">Reading scans</div>
-    <div class="card" style="padding:10px 14px">
-      <div class="row-title">Date format on your documents</div>
-      <p class="sub">Used when a date like 03/04/2027 could be read two ways. Unclear dates are always flagged.</p>
-      <div class="chips">
-        <button class="chip${state.settings.dateFormat!=='MDY'?' on':''}" data-act="dateFormat" data-f="DMY">Day first (14/04/2027)</button>
-        <button class="chip${state.settings.dateFormat==='MDY'?' on':''}" data-act="dateFormat" data-f="MDY">Month first (04/14/2027)</button>
-      </div>
-      <p class="muted">Text is read on this phone. The reader is downloaded once, and your images never leave the phone.</p>
-    </div>
-    <div class="sec-title">Documents</div>
-    <button class="row" data-act="openProfiles"><i class="ti ti-users" aria-hidden="true"></i><div class="row-main"><div class="row-title">Profiles</div></div><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
-    <button class="row" data-act="openTypes"><i class="ti ti-forms" aria-hidden="true"></i><div class="row-main"><div class="row-title">Document types and fields</div><div class="row-sub">${state.types.length} types · add fields or your own types</div></div><i class="ti ti-chevron-right" aria-hidden="true"></i></button>
-    <div class="sec-title">Appearance</div>
-    <div class="card" style="padding:10px 14px">
-      <div class="row-title">Home design</div>
-      <div role="radiogroup" aria-label="Home design">${HOME_DESIGNS.map(([k,l,ic,desc])=>`<button class="design-opt${homeDesign()===k?' on':''}" role="radio" aria-checked="${homeDesign()===k}" data-act="homeDesign" data-v="${k}"><i class="ti ${ic}" aria-hidden="true"></i><span><b>${l}</b><small>${esc(desc)}</small></span></button>`).join('')}</div>
-      <p class="muted">Folded and unfolded both follow it. Unfolded, the right side shows your family overview until you open a document.</p>
-      <div class="row-title" style="margin-top:8px">Theme</div>
-      <div class="chips">
-        <button class="chip${th==='midnight'?' on':''}" data-act="theme" data-t="midnight">Midnight</button>
-        <button class="chip${th==='paper'?' on':''}" data-act="theme" data-t="paper">Paper</button>
-      </div>
-      <div class="row-title" style="margin-top:8px">How dates are shown</div>
-      <div class="chips" style="flex-wrap:wrap">${Object.entries(DATE_DISPLAYS).map(([k,l])=>`<button class="chip${(state.settings.dateDisplay||'text')===k?' on':''}" data-act="dateDisplay" data-f="${k}">${l}</button>`).join('')}</div>
-      <p class="muted">Calendar events always use the written-out form, like 14 Apr 2027.</p>
-    </div>
-    <div class="sec-title">This device</div>
-    <button class="row" data-act="eraseAll"><i class="ti ti-trash" aria-hidden="true" style="color:var(--red)"></i><div class="row-main"><div class="row-title" style="color:var(--red)">Erase all data on this device</div></div></button>
-    <p class="muted" style="margin-top:20px">Expiry ${esc(APP_VERSION)}</p>`;
+    <div class="sec-title danger-title">Danger zone</div>
+    <button class="row" data-act="eraseAll"><i class="ti ti-trash" aria-hidden="true" style="color:var(--red)"></i><div class="row-main"><div class="row-title" style="color:var(--red)">Erase all data on this device</div><div class="row-sub">Removes Expiry’s data from this device only</div></div></button>`;
+  return '';
+}
+// Settings: five sections. Folded: the five rows, each section on its own page.
+// Unfolded: Settings takes the whole screen, sections on the left and the chosen one on the right.
+function renderSettings(entry){
+  const wide = window.innerWidth >= 720, k = entry && entry.section;
+  const footer = `<p class="muted" style="margin-top:20px">Expiry ${esc(APP_VERSION)}</p>`;
+  if(wide){
+    const cur = k || 'people', name = (SETTINGS_SECTIONS.find(x=>x[0]===cur)||[])[1] || '';
+    return paneTop('Settings') + `<div class="set-grid"><nav class="set-nav" aria-label="Settings sections">${settingsNavHTML(cur)}${footer}</nav>
+      <div class="set-body"><h2 class="set-body-title" style="font-size:18px;margin:6px 0 10px">${esc(name)}</h2>${settingsSectionHTML(cur)}</div></div>`;
+  }
+  if(!k) return paneTop('Settings') + settingsNavHTML(null) + footer;
+  const name = (SETTINGS_SECTIONS.find(x=>x[0]===k)||[])[1] || 'Settings';
+  return paneTop(name) + settingsSectionHTML(k);
 }
 /* ---------- document types and fields editor (M9) ----------
    A type is edited as a working copy (tdraft) and applied on Save. Saving can change stored data:
@@ -1898,7 +1958,7 @@ const ACT = {
   clearDate: ()=>{ ui.date = null; renderHome(); },
   toggleArchived: ()=>{ ui.showArchived = !ui.showArchived; renderHome(); },
   openDoc: el=>openDocFromList(el.dataset.id),
-  syncPill: ()=>{ if(syncCfg && (syncCfg.lastError || syncCfg.pendingConflicts)) syncNow({ interactive:true }); else ACT.openSettings(); },
+  syncPill: ()=>{ if(syncCfg && (syncCfg.lastError || syncCfg.pendingConflicts)) syncNow({ interactive:true }); else ACT.openSettings({ dataset:{ s:'data' } }); },
   homeDesign: el=>{ state.settings.homeDesign = el.dataset.v; ui.familyList = false; ui.tlAll = false; save(); const p = topPane(); if(p) renderSide(p); renderHome(); },
   tlMode: el=>{ ui.tlAll = el.dataset.m==='all'; if(!ui.tlAll){ ui.status = null; ui.date = null; ui.search = ''; ui.searchOpen = false; } renderHome(); },
   familyList: ()=>{ ui.familyList = true; renderHome(); },
@@ -2074,7 +2134,16 @@ const ACT = {
   pcolor: el=>{ pdraft.color = el.dataset.c; pdraft.dirty = true; renderSide(topPane()); },
   saveProfile: ()=>saveProfileDraft(),
   deleteProfile: el=>deleteProfileFlow(el.dataset.id),
-  openSettings: ()=>{ const top = topPane(); if(top && top.screen==='settings') return; if(window.innerWidth>=720 && top && top.screen!=='edit' && top.screen!=='profile-edit') replaceTop({kind:'pane', screen:'settings'}); else push({kind:'pane', screen:'settings'}); },
+  openSettings: el=>{
+    const section = el && el.dataset && el.dataset.s || null, top = topPane();
+    if(top && top.screen==='settings' && !section) return;
+    const entry = {kind:'pane', screen:'settings', section};
+    if(window.innerWidth>=720 && top && top.screen!=='edit' && top.screen!=='profile-edit') replaceTop(entry); else push(entry);
+  },
+  settingsSection: el=>{
+    const entry = {kind:'pane', screen:'settings', section:el.dataset.s};
+    if(window.innerWidth>=720) replaceTop(entry); else push(entry);
+  },
   openTypes: ()=>push({kind:'pane', screen:'types'}),
   editType: el=>{ const t = state.types.find(x=>x.id===el.dataset.id); if(!t) return; tdraft = typeDraftFrom(t); push({kind:'pane', screen:'type-edit'}); },
   addType: ()=>{ tdraft = newTypeDraft(); push({kind:'pane', screen:'type-edit'}); setTimeout(()=>{ const i = $('t-name'); if(i) i.focus(); }, 0); },
@@ -2182,6 +2251,7 @@ window.addEventListener('resize', ()=>{
   const a = document.activeElement;
   if(a && a.id==='search-input'){ renderHomeKeepSearchFocus(); if(!topPane() && layoutMode()!=='phone') renderSide(null); }
   else renderHome();
+  const sp = topPane(); if(sp && sp.screen==='settings') renderSide(sp); // folded list/page vs unfolded grid
 });
 
 /* =====================================================================================
@@ -4712,7 +4782,7 @@ function syncCardHTML(){
 function syncNudgeHTML(){
   if(!syncCfg) return '';
   if(syncCfg.pendingConflicts) return `<button class="sum-item cal" data-act="syncNow"><i class="ti ti-git-merge" aria-hidden="true"></i><span>Sync needs your decision on ${syncCfg.pendingConflicts} document${syncCfg.pendingConflicts===1?'':'s'}. <u>Resolve</u></span></button>`;
-  if(syncCfg.lastError && /token|Gist|decrypt/.test(syncCfg.lastError)) return `<button class="sum-item cal" data-act="openSettings"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>Sync stopped: ${esc(syncCfg.lastError)} <u>Settings</u></span></button>`;
+  if(syncCfg.lastError && /token|Gist|decrypt/.test(syncCfg.lastError)) return `<button class="sum-item cal" data-act="openSettings" data-s="data"><i class="ti ti-cloud-off" aria-hidden="true"></i><span>Sync stopped: ${esc(syncCfg.lastError)} <u>Settings</u></span></button>`;
   return '';
 }
 function renderSyncBits(){
@@ -5017,7 +5087,7 @@ function backupNudgeHTML(){
   const oldest = Math.min(...state.documents.map(d=>Date.parse(d.createdAt||'') || Date.now()));
   if(Date.now() - oldest < 7*86400000) return '';            // give a new user a week
   if(last && Date.now() - last < 30*86400000) return '';
-  return `<button class="sum-item cal" data-act="openSettings"><i class="ti ti-database-export" aria-hidden="true"></i><span>${last ? 'No backup for over a month' : 'You don’t have a backup yet'}. If this phone is lost, so are your documents. <u>Back up</u></span></button>`;
+  return `<button class="sum-item cal" data-act="openSettings" data-s="data"><i class="ti ti-database-export" aria-hidden="true"></i><span>${last ? 'No backup for over a month' : 'You don’t have a backup yet'}. If this phone is lost, so are your documents. <u>Back up</u></span></button>`;
 }
 
 /* ---------- boot ---------- */
